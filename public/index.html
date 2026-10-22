@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estudo BTS Compress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --line:#d9dee4; --fg:#16202b; --muted:#5b6876;
+  --accent:#0b7a75; --accent-soft:#dff1ef; --signal:#c2410c;
+  --ok:#15803d; --ok-bg:#dcfce7; --warn:#b45309; --warn-bg:#fef3c7; --bad:#b91c1c; --bad-bg:#fee2e2;
+  --display:"Chakra Petch",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1419; --surface:#141d24; --line:#26333d; --fg:#e4eaef; --muted:#8c9aa6;
+  --accent:#3fc1b8; --accent-soft:#16312f; --signal:#fb923c;
+  --ok:#4ade80; --ok-bg:#12301d; --warn:#fbbf24; --warn-bg:#33270c; --bad:#f87171; --bad-bg:#3a1414; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1419; --surface:#141d24; --line:#26333d; --fg:#e4eaef; --muted:#8c9aa6;
+  --accent:#3fc1b8; --accent-soft:#16312f; --signal:#fb923c;
+  --ok:#4ade80; --ok-bg:#12301d; --warn:#fbbf24; --warn-bg:#33270c; --bad:#f87171; --bad-bg:#3a1414; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:12px 24px;padding-block:12px;flex-wrap:wrap}
+.logo{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.02em;display:flex;align-items:center;gap:8px;color:var(--fg);text-decoration:none}
+.logo svg{width:26px;height:26px;color:var(--accent)}
+.logo small{font-family:var(--mono);font-size:12px;font-weight:400;color:var(--muted);letter-spacing:0}
+.spacer{flex:1}
+.btn{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:7px 14px;border-radius:6px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn.on{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.login{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-block:10px;border-top:1px solid var(--line);font-size:14px}
+.login input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:0;flex:0 1 260px}
+.login .msg{color:var(--bad)}
+
+.tabs{display:flex;gap:8px;overflow-x:auto;padding-block:14px;scrollbar-width:thin}
+.tab{flex:0 0 auto;font:inherit;font-size:14px;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--muted);padding:6px 14px;border-radius:999px;cursor:pointer}
+.tab.on{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+
+.hero{padding-block:16px 4px;display:grid;gap:6px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--signal)}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(26px,4vw,38px);line-height:1.15;margin:0;text-wrap:balance}
+.lede{color:var(--muted);margin:0;max-width:70ch}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding-block:16px 8px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:grid;gap:4px}
+.card .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.card .v{font-family:var(--display);font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.card .v small{font-family:var(--mono);font-size:13px;font-weight:400;color:var(--muted);margin-left:4px}
+.card .s{font-size:13px;color:var(--muted)}
+.card.good .v{color:var(--ok)} .card.warn .v{color:var(--warn)} .card.bad .v{color:var(--bad)}
+
+.usage{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-block:8px;display:grid;gap:10px}
+.usage-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.usage-head b{color:var(--fg);font-weight:600}
+.track{display:flex;height:22px;border-radius:5px;overflow:hidden;background:var(--bg);border:1px solid var(--line)}
+.track span{height:100%;border-right:1px solid var(--surface)}
+.track span.free{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--line) 5px 7px);border-right:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding-block:12px}
+.tools input{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 10px;flex:1 1 220px;min-width:0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{font:inherit;font-size:14px;border:0;background:var(--surface);color:var(--muted);padding:8px 14px;cursor:pointer}
+.seg button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.count{margin-left:auto;font-family:var(--mono);font-size:13px;color:var(--muted)}
+
+.tablebox{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow-x:auto;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{background:var(--surface);text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);padding:0;white-space:nowrap}
+th.r,td.r{text-align:right}
+th button{all:unset;display:block;padding:10px 12px;cursor:pointer;box-sizing:border-box;width:100%}
+th button:hover{color:var(--fg)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--bg)}
+tfoot td{font-weight:600;border-top:1px solid var(--line);border-bottom:0;background:var(--bg)}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.nil{color:var(--muted);opacity:.5}
+td.ed{cursor:pointer;box-shadow:inset 0 -2px 0 var(--warn-bg)}
+td.ed:hover{background:var(--warn-bg)}
+td.saved{animation:flash 1.2s ease-out}
+@keyframes flash{from{background:var(--ok-bg)}to{background:transparent}}
+td input.cell{width:7em;font:inherit;font-family:var(--mono);color:var(--fg);background:var(--bg);border:1px solid var(--accent);border-radius:4px;padding:3px 6px;text-align:right}
+.svc{display:flex;align-items:center;gap:10px;font-weight:600}
+.dot{width:10px;height:10px;border-radius:2px;flex:0 0 auto}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;font-family:var(--body)}
+.c-ok{background:var(--ok-bg);color:var(--ok)} .c-warn{background:var(--warn-bg);color:var(--warn)} .c-acc{background:var(--accent-soft);color:var(--accent)}
+.up{color:var(--bad)} .down{color:var(--ok)}
+.empty{padding:32px;text-align:center;color:var(--muted)}
+.notes{display:grid;gap:8px;padding-block:4px 32px}
+.notes p{margin:0;font-size:13px;color:var(--muted);max-width:90ch}
+.notes p.flag{color:var(--warn)}
+h2{font-family:var(--display);font-size:20px;font-weight:600;margin:20px 0 10px}
+.toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:6px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+.toast.err{background:var(--bad);color:#fff}
+.state{padding:48px 0;text-align:center;color:var(--muted)}
+footer{border-top:1px solid var(--line);background:var(--surface)}
+footer .wrap{padding-block:20px;display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;color:var(--muted);font-size:13px}
+@media (max-width:640px){.count{margin-left:0;flex-basis:100%}}
+@media (prefers-reduced-motion:reduce){td.saved{animation:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap bar">
+    <a class="logo" href="/">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M4 26h24" stroke="currentColor" stroke-width="2"/><path d="M16 26V12M10 26l6-14 6 14" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 8a10 10 0 0 1 14 0M12 11a5 5 0 0 1 8 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      BTS Compress <small>estudo 03/08/2026</small>
+    </a>
+    <span class="spacer"></span>
+    <button class="btn" id="editBtn" type="button" hidden>Editar valores</button>
+    <button class="btn" id="themeBtn" type="button">Tema</button>
+  </div>
+  <form class="wrap login" id="login" hidden>
+    <label for="token">Senha de edição</label>
+    <input id="token" type="password" autocomplete="current-password" placeholder="ADMIN_TOKEN do servidor">
+    <button class="btn primary" type="submit">Entrar</button>
+    <button class="btn" type="button" id="loginCancel">Cancelar</button>
+    <span class="msg" id="loginMsg"></span>
+  </form>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="tabs" id="tabs" role="tablist" aria-label="Estudos"></div>
+    <div id="app"><p class="state">Carregando dados do banco…</p></div>
+  </div>
+</main>
+
+<footer><div class="wrap"><span>Dados: estudo_completo_BTS - 03_08_2026.xlsx · PostgreSQL</span><span>Taxas em Mbps, exceto onde indicado</span></div></footer>
+
+<script>
+const HUES=["#0b7a75","#c2410c","#4338ca","#be185d","#15803d","#b45309","#0369a1","#7c3aed","#0f766e","#9f1239","#4d7c0f","#1d4ed8","#a16207","#6d28d9"];
+const $=id=>document.getElementById(id);
+const nf=new Intl.NumberFormat("pt-BR",{maximumFractionDigits:4});
+const fmt=v=>v==null?"—":typeof v==="number"?nf.format(v):v;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const r3=v=>+(+v).toFixed(4);
+const sumBy=(a,k)=>r3(a.reduce((s,r)=>s+(r[k]||0),0));
+const colorMap={};let ci=0;
+const col=name=>{const k=name.replace(/[^A-Z0-9]/gi,"").toUpperCase().replace(/^TV/,"").replace(/1SEG$|1S$/,"1S");return colorMap[k]??=HUES[ci++%HUES.length]};
+const svcCell=n=>`<span class="svc"><span class="dot" style="background:${col(n)}"></span>${esc(n)}</span>`;
+const delta=d=>d==null?"—":d===0?"0":`<span class="${d>0?"up":"down"}">${d>0?"+":""}${nf.format(d)}</span>`;
+const pct=(a,b)=>nf.format(r3(a/b*100).toFixed(1)*1);
+const card=(k,v,unit,s,cls="")=>`<div class="card ${cls}"><span class="k">${k}</span><span class="v">${v}<small>${unit||""}</small></span>${s?`<span class="s">${s}</span>`:""}</div>`;
+function getToken(){try{return localStorage.getItem("bts_token")||""}catch{return ""}}
+function setToken(t){try{t?localStorage.setItem("bts_token",t):localStorage.removeItem("bts_token")}catch{}}
+function toast(msg,err){const t=document.createElement("div");t.className="toast"+(err?" err":"");t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
+
+function usageBar(title,items,total){
+  const used=items.reduce((s,i)=>s+(i.v||0),0),free=Math.max(0,total-used),over=used>total;
+  return `<div class="usage"><div class="usage-head"><span><b>${title}</b></span><span>${nf.format(r3(used))} de ${nf.format(total)} Mbps · ${pct(used,total)}% ocupado${over?' · <b style="color:var(--bad)">acima da capacidade</b>':""}</span></div>
+  <div class="track" role="img" aria-label="${title}">${items.map(i=>`<span title="${esc(i.n)}: ${nf.format(i.v||0)} Mbps" style="width:${Math.min(100,(i.v||0)/Math.max(total,used)*100)}%;background:${col(i.n)}"></span>`).join("")}<span class="free" title="Livre: ${nf.format(r3(free))} Mbps" style="width:${free/Math.max(total,used)*100}%"></span></div>
+  <div class="legend">${items.filter(i=>i.v>0).map(i=>`<span><i style="background:${col(i.n)}"></i>${esc(i.n)} ${nf.format(i.v)}</span>`).join("")}<span><i style="background:var(--line)"></i>Livre ${nf.format(r3(free))}</span></div></div>`;
+}
+function freeCard(label,free,cls){return card(label,nf.format(r3(free)),"Mbps",free<0?"Capacidade excedida":"",free<0?"bad":cls)}
+
+/* ===== Estado ===== */
+let D=null,view="pids",taxMode="enc",sorts={},editing=false,canEdit=false,auditLog=[];
+const S=k=>D.settings.find(s=>s.key===k)?.value;
+const ref=(t,id,f,ctx)=>({t,id,f,ctx});
+
+function build(){
+  const svc=Object.fromEntries(D.services.map(s=>[s.id,s]));
+  const br=cfg=>D.bitrates.filter(b=>b.config===cfg);
+  const pidsRows=D.pids.map(p=>{const s=svc[p.service_id],b=br("pids_total").find(x=>x.service_id===p.service_id);
+    const row={id:s.service_id,svc:s.name,cod:s.codec,br:b?.mbps??null,note:b?.note,_ref:{}};
+    for(const k of["v","a1","a2","a3","a4","pcr","pmt","dem","ait","cc","ect","data"]){row[k]=p[k];row._ref[k]=ref("service_pids",p.service_id,k,`${s.name} · PID ${k}`)}
+    if(b)row._ref.br=ref("bitrates",b.id,"mbps",`${s.name} · PIDs total`);return row});
+  const tit=br("titular"),res=br("reserva"),old=br("antigo");
+  const nowRows=tit.map(t=>{const s=svc[t.service_id],r=res.find(x=>x.service_id===t.service_id);
+    return {id:s.service_id,svc:s.name,tit:t.mbps,res:r?.mbps??null,d:r&&t.mbps!=null&&r.mbps!=null?r3(r.mbps-t.mbps):null,
+      _ref:{tit:ref("bitrates",t.id,"mbps",`${s.name} · titular`),...(r?{res:ref("bitrates",r.id,"mbps",`${s.name} · reserva`)}:{})}}});
+  const oldRows=old.map(o=>{const s=svc[o.service_id],t=tit.find(x=>x.service_id===o.service_id);
+    return {id:s.service_id,svc:o.label||s.name,br:o.mbps,now:t?.mbps??null,d:t&&o.mbps!=null&&t.mbps!=null?r3(t.mbps-o.mbps):null,_ref:{br:ref("bitrates",o.id,"mbps",`${s.name} · antigo`)}}});
+  const taxRows=D.encoder.filter(e=>e.source===taxMode).map(e=>{const s=svc[e.service_id];const row={svc:s.name,isdb:s.system,_ref:{}};
+    for(const k of["a1","a2","a3","a4","v","cc"]){row[k]=e[k];row._ref[k]=ref("encoder_rates",e.id,k,`${s.name} · ${taxMode} ${k}`)}return row});
+  const layerRows=D.layers.map(l=>({layer:l.layer,svc:l.name,br:l.mbps,_ref:{br:ref("isdb_layers",l.id,"mbps",`ISDB-T ${l.name}`)}}));
+  const isdbPidRows=D.isdbPids.map(p=>({grp:p.grp,pid:p.pid,ident:p.ident,br:p.mbps,_ref:{pid:ref("isdb_pids",p.id,"pid",`ISDB-T ${p.grp} ${p.ident}`),br:ref("isdb_pids",p.id,"mbps",`ISDB-T ${p.grp} ${p.ident}`)}}));
+  return {pidsRows,nowRows,oldRows,taxRows,layerRows,isdbPidRows,svc};
+}
+
+function views(B){
+  const AV=S("dvb_available"),LBT=S("isdb_layer_b_total"),LBR=S("isdb_layer_b_used_reported");
+  const usedPids=sumBy(B.pidsRows,"br"),usedT=sumBy(B.nowRows,"tit"),usedR=sumBy(B.nowRows,"res"),usedO=sumBy(B.oldRows,"br");
+  const lb=B.layerRows.filter(r=>r.layer==="B"),usedLB=sumBy(lb,"br");
+  const dupIds=Object.entries(B.pidsRows.reduce((m,r)=>(m[r.id]=(m[r.id]||[]).concat(r.svc),m),{})).filter(([,v])=>v.length>1);
+  const flags=B.pidsRows.filter(r=>r.note);
+  const avRef=`data-ref='${JSON.stringify(ref("settings","dvb_available","value","Banda disponível DVB"))}'`;
+  return {
+   pids:{tab:"Serviços & PIDs",eyebrow:"DVB · Aba PIDS - Total",title:"Serviços e PIDs do transport stream",
+    lede:"Mapa de PIDs decimais por serviço (vídeo, áudios, PCR, PMT, closed caption, dados) e bitrate titular de cada um.",
+    cards:card("Disponível",nf.format(AV),"Mbps","Banda total do mux")+card("Utilizado",nf.format(usedPids),"Mbps",`${pct(usedPids,AV)}% do mux`)+freeCard("Nulo",AV-usedPids,"good")+card("Serviços",new Set(B.pidsRows.map(r=>r.svc)).size,""),
+    usage:usageBar("Ocupação do mux DVB (titular)",B.pidsRows.map(r=>({n:r.svc,v:r.br})),AV),
+    tables:[{rows:B.pidsRows,foot:true,cols:[["ID","id","num"],["Serviço","svc","svc"],["Codificação","cod","txt"],["Vídeo","v","num"],["Áudio 1","a1","num"],["Áudio 2","a2","num"],["Áudio 3","a3","num"],["Áudio 4","a4","num"],["PCR","pcr","num"],["PMT","pmt","num"],["DEM CC","dem","num"],["AIT","ait","num"],["CC","cc","num"],["ECT","ect","num"],["Data","data","num"],["Bitrate","br","br"]]}],
+    notes:[["PIDs não usados (“XXXX” na planilha) aparecem como “—”."],...flags.map(f=>[`${f.svc}: ${f.note}`,1]),...dupIds.map(([id,v])=>[`ID de serviço ${id} repetido em: ${v.join(", ")}.`,1])]},
+   dvb:{tab:"DVB atual",eyebrow:"DVB · Atualizado 20/07/2026",title:"Bitrates atuais: titular x reserva",
+    lede:"Comparação das taxas configuradas no sistema titular e no sistema reserva, serviço a serviço.",
+    cards:card("Disponível",nf.format(AV),"Mbps")+card("Usado titular",nf.format(usedT),"Mbps",`Sobra ${nf.format(r3(AV-usedT))} Mbps`,AV-usedT<0?"bad":"")+card("Usado reserva",nf.format(usedR),"Mbps",`Sobra ${nf.format(r3(AV-usedR))} Mbps`,AV-usedR<0?"bad":"")+card("Serviços",B.nowRows.length,"","em cada sistema"),
+    usage:usageBar("Titular",B.nowRows.map(r=>({n:r.svc,v:r.tit})),AV)+usageBar("Reserva",B.nowRows.map(r=>({n:r.svc,v:r.res})),AV),
+    tables:[{rows:B.nowRows,foot:true,cols:[["ID","id","num"],["Serviço","svc","svc"],["Titular","tit","br"],["Reserva","res","br"],["Diferença (R − T)","d","delta"]]}],
+    notes:[["Diferença em vermelho: reserva usa mais banda que o titular. Em verde: usa menos."]]},
+   old:{tab:"DVB antigo",eyebrow:"DVB · Configuração antiga",title:"Bitrates antigos x atuais",
+    lede:"Taxas da configuração antiga do DVB comparadas com as atuais do titular.",
+    cards:card("Disponível",nf.format(AV),"Mbps")+card("Utilizado",nf.format(usedO),"Mbps")+freeCard("Sobra",AV-usedO,"good")+card("Serviços",B.oldRows.length,""),
+    usage:usageBar("Ocupação antiga do mux",B.oldRows.map(r=>({n:r.svc,v:r.br})),AV),
+    tables:[{rows:B.oldRows,foot:true,cols:[["ID","id","num"],["Serviço","svc","svc"],["Antigo","br","br"],["Atual (titular)","now","br"],["Variação","d","delta"]]}],
+    notes:[["O ID 1 aparece como CULT BRASIL na configuração antiga e como RÁDIO AM na atual."]]},
+   taxas:{tab:"Taxas encoder / mux",eyebrow:"BTS Compress · encoders",title:"Taxas dos encoders e do mux",
+    lede:"Áudio e closed caption em kbps, vídeo em Mbps. Alterne entre a taxa configurada no encoder e a medida no mux.",
+    cards:card("Vídeo total",nf.format(sumBy(B.taxRows,"v")),"Mbps",taxMode==="enc"?"Encoders":"Mux")+card("Áudio total",nf.format(["a1","a2","a3","a4"].reduce((s,k)=>s+sumBy(B.taxRows,k),0)),"kbps")+card("Serviços",B.taxRows.length,"")+card("ISDB-T",B.taxRows.filter(r=>r.isdb==="ISDB-T").length,"","serviços"),
+    usage:"",extra:`<span class="seg" role="group" aria-label="Origem"><button type="button" data-m="enc" class="${taxMode==="enc"?"on":""}">Encoder</button><button type="button" data-m="mux" class="${taxMode==="mux"?"on":""}">Mux</button></span>`,
+    tables:[{rows:B.taxRows,cols:[["Serviço","svc","svc"],["Sistema","isdb","sys"],["Áudio 1","a1","num"],["Áudio 2","a2","num"],["Áudio 3","a3","num"],["Áudio 4 (Atmos)","a4","num"],["Vídeo (Mbps)","v","num"],["CC (kbps)","cc","num"]]}],
+    notes:[["EPG e interatividade estão sem valor nas duas tabelas da planilha."]]},
+   isdb:{tab:"ISDB-T",eyebrow:"ISDB-T · Cinco canais",title:"ISDB-T: layers e PIDs",
+    lede:"Sistema atual com as alterações de taxas, modulação e FEC: distribuição por layer e taxa medida de cada PID.",
+    cards:card("Total layer B",nf.format(LBT),"Mbps")+card("Serviços layer B",nf.format(usedLB),"Mbps",`${pct(usedLB,LBT)}% da layer`)+card("Usado (planilha)",nf.format(LBR),"Mbps",`Sobra ${nf.format(r3(LBT-LBR))} Mbps`,LBT-LBR<1?"warn":"")+card("Layer A (1seg)",nf.format(sumBy(B.layerRows.filter(r=>r.layer==="A"),"br")),"Mbps"),
+    usage:usageBar("Layer B",lb.map(r=>({n:r.svc,v:r.br})),LBT),
+    tables:[{h:"Serviços por layer",rows:B.layerRows,foot:true,cols:[["Layer","layer","layer"],["Serviço (proposto)","svc","svc"],["Bitrate total","br","br"]]},
+            {h:"PIDs e taxas medidas",rows:B.isdbPidRows,foot:true,cols:[["Grupo","grp","svc"],["PID","pid","num"],["Identificação","ident","txt"],["Bitrate","br","br"]]}],
+    notes:[["“Usado (planilha)” é o valor informado na planilha e inclui tabelas e overhead; a soma dos serviços da layer B pode ser menor."]]},
+   hist:{tab:"Histórico",eyebrow:"Sistema · auditoria",title:"Histórico de alterações",
+    lede:"Cada valor editado no sistema fica registrado aqui, com o valor anterior e o novo.",
+    cards:card("Alterações",auditLog.length,"","últimas 200")+card("Disponível DVB",`<span ${editing?`class="edv" ${avRef} style="cursor:pointer;border-bottom:2px dashed var(--warn)"`:""}>${nf.format(AV)}</span>`,"Mbps",editing?"Clique para editar":""),
+    usage:"",
+    tables:[{rows:auditLog.map(h=>({at:new Date(h.at).toLocaleString("pt-BR"),ctx:h.context||`${h.tbl} #${h.row_id}`,field:h.field,old:h.old_value,new:h.new_value})),
+      cols:[["Quando","at","txt"],["Item","ctx","txt"],["Campo","field","txt"],["Antes","old","txt"],["Depois","new","txt"]]}],
+    notes:[]}
+  };
+}
+
+/* ===== Render ===== */
+let V=null;
+function cell(c,r){
+  const v=r[c[1]],rf=editing&&r._ref&&r._ref[c[1]];
+  const ed=rf?` class="ed ${["num","br"].includes(c[2])?"num":""} ${c[2]==="br"?"r":""}" data-ref='${esc(JSON.stringify(rf))}' tabindex="0" title="Clique para editar"`:"";
+  if(c[2]==="svc")return `<td>${svcCell(v)}</td>`;
+  if(c[2]==="delta")return `<td class="num r">${delta(v)}</td>`;
+  if(c[2]==="sys")return `<td><span class="chip ${v==="ISDB-T"?"c-acc":"c-ok"}">${v}</span></td>`;
+  if(c[2]==="layer")return `<td><span class="chip ${v==="B"?"c-acc":v==="A"?"c-ok":"c-warn"}">${v==="Tabelas"?v:"Layer "+v}</span></td>`;
+  if(c[2]==="br")return rf?`<td${ed}>${fmt(v)}</td>`:`<td class="num r">${fmt(v)}${r.note?' <span class="chip c-warn" title="'+esc(r.note)+'">!</span>':""}</td>`;
+  if(c[2]==="num")return rf?`<td${ed}>${fmt(v)}</td>`:`<td class="num${v==null?" nil":""}">${fmt(v)}</td>`;
+  return `<td>${esc(fmt(v))}</td>`;
+}
+function renderTables(){
+  const q=($("q")?.value||"").trim().toLowerCase();let shown=0,tot=0;
+  $("tables").innerHTML=V.tables.map((t,ti)=>{
+    const key=view+ti,s=sorts[key];let rows=t.rows;tot+=rows.length;
+    if(q)rows=rows.filter(r=>Object.entries(r).some(([k,v])=>k!=="_ref"&&v!=null&&String(v).toLowerCase().includes(q)));
+    if(s)rows=[...rows].sort((a,b)=>{const x=a[s.k],y=b[s.k];if(x==null)return 1;if(y==null)return -1;const d=typeof x==="number"?x-y:String(x).localeCompare(String(y),"pt");return s.asc?d:-d});
+    shown+=rows.length;
+    const foot=t.foot&&rows.length?`<tfoot><tr>${t.cols.map((c,i)=>c[2]==="br"?`<td class="num r">${nf.format(sumBy(rows,c[1]))}</td>`:i===0?"<td>Total</td>":"<td></td>").join("")}</tr></tfoot>`:"";
+    return `${t.h?`<h2>${t.h}</h2>`:""}<div class="tablebox"><table><thead><tr>${t.cols.map(c=>`<th class="${["br","delta"].includes(c[2])?"r":""}"><button data-t="${ti}" data-k="${c[1]}">${c[0]}${s&&s.k===c[1]?(s.asc?" ▲":" ▼"):""}</button></th>`).join("")}</tr></thead>
+    <tbody>${rows.length?rows.map(r=>`<tr>${t.cols.map(c=>cell(c,r)).join("")}</tr>`).join(""):`<tr><td colspan="${t.cols.length}" class="empty">${q?"Nada encontrado para essa busca.":"Nenhum registro ainda."}</td></tr>`}</tbody>${foot}</table></div>`;
+  }).join("");
+  $("count").textContent=q?`${shown} de ${tot} linhas`:`${tot} linhas`;
+}
+function render(keepSearch){
+  const all=views(build());V=all[view];
+  const q=keepSearch&&$("q")?$("q").value:"";
+  $("tabs").innerHTML=Object.entries(all).map(([k,v])=>`<button class="tab${k===view?" on":""}" role="tab" aria-selected="${k===view}" data-v="${k}">${v.tab}</button>`).join("");
+  $("app").innerHTML=`<section class="hero"><span class="eyebrow">${V.eyebrow}</span><h1>${V.title}</h1><p class="lede">${V.lede}</p></section>
+    <section class="cards">${V.cards}</section>${V.usage}
+    <div class="tools"><input id="q" type="search" placeholder="Buscar serviço, PID ou valor…" aria-label="Buscar">${V.extra||""}<span class="count" id="count"></span></div>
+    ${editing?'<p class="notes"><span class="chip c-warn">Modo edição</span> Clique num valor sublinhado, digite e aperte Enter. Esc cancela. Deixe vazio para apagar.</p>':""}
+    <div id="tables"></div><div class="notes">${V.notes.map(([n,f])=>`<p class="${f?"flag":""}">${esc(n)}</p>`).join("")}</div>`;
+  $("q").value=q;renderTables();
+}
+
+/* ===== Edição ===== */
+async function api(path,opts={}){
+  const r=await fetch(path,{...opts,headers:{"Content-Type":"application/json",...(opts.token?{Authorization:"Bearer "+opts.token}:{})}});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||"Falha na requisição."),{status:r.status});return j;
+}
+function applyLocal(rf,value){
+  const map={settings:["settings","key"],bitrates:["bitrates","id"],service_pids:["pids","service_id"],encoder_rates:["encoder","id"],isdb_layers:["layers","id"],isdb_pids:["isdbPids","id"]};
+  const [arr,pk]=map[rf.t];const row=D[arr].find(x=>String(x[pk])===String(rf.id));if(row)row[rf.t==="settings"?"value":rf.f]=value;
+}
+function startEdit(el){
+  if(el.querySelector("input"))return;
+  const rf=JSON.parse(el.dataset.ref),old=el.textContent.trim();
+  el.innerHTML=`<input class="cell" inputmode="decimal" value="${old==="—"?"":esc(old.replace(/\./g,""))}" aria-label="Novo valor">`;
+  const inp=el.querySelector("input");inp.focus();inp.select();
+  let done=false;
+  const finish=async save=>{if(done)return;done=true;
+    if(!save||inp.value.trim()===(old==="—"?"":old.replace(/\./g,""))){el.textContent=old;return}
+    try{const r=await api(`/api/${rf.t}/${encodeURIComponent(rf.id)}`,{method:"PATCH",token:getToken(),body:JSON.stringify({field:rf.f,value:inp.value.trim(),context:rf.ctx})});
+      applyLocal(rf,r.value);toast("Valor salvo");
+      auditLog=await api("/api/auditLog").catch(()=>auditLog);render(true);
+    }catch(e){el.textContent=old;toast(e.message,true);if(e.status===401){setToken("");setEditing(false)}}};
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter")finish(true);if(e.key==="Escape")finish(false)});
+  inp.addEventListener("blur",()=>finish(true));
+}
+function setEditing(on){editing=on;$("editBtn").classList.toggle("on",on);$("editBtn").textContent=on?"Sair da edição":"Editar valores";render(true)}
+
+/* ===== Eventos ===== */
+$("tabs").addEventListener("click",async e=>{const b=e.target.closest(".tab");if(!b)return;view=b.dataset.v;if(view==="hist")auditLog=await api("/api/auditLog").catch(()=>[]);location.hash=view;render()});
+$("app").addEventListener("click",e=>{
+  const m=e.target.closest("[data-m]");if(m){taxMode=m.dataset.m;render(true);return}
+  const th=e.target.closest("th button");if(th){const key=view+th.dataset.t,s=sorts[key];sorts[key]={k:th.dataset.k,asc:s&&s.k===th.dataset.k?!s.asc:true};renderTables();return}
+  const ed=e.target.closest("td.ed,.edv");if(ed)startEdit(ed);
+});
+$("app").addEventListener("keydown",e=>{const ed=e.target.closest&&e.target.closest("td.ed");if(ed&&e.key==="Enter"&&e.target===ed){e.preventDefault();startEdit(ed)}});
+$("app").addEventListener("input",e=>{if(e.target.id==="q")renderTables()});
+$("editBtn").addEventListener("click",async()=>{
+  if(editing)return setEditing(false);
+  if(getToken()){try{await api("/api/auth/check",{method:"POST",token:getToken()});return setEditing(true)}catch{setToken("")}}
+  $("login").hidden=false;$("token").focus();
+});
+$("login").addEventListener("submit",async e=>{e.preventDefault();$("loginMsg").textContent="";
+  try{await api("/api/auth/check",{method:"POST",token:$("token").value});setToken($("token").value);$("token").value="";$("login").hidden=true;setEditing(true)}
+  catch(err){$("loginMsg").textContent=err.message}});
+$("loginCancel").addEventListener("click",()=>{$("login").hidden=true;$("loginMsg").textContent=""});
+$("themeBtn").addEventListener("click",()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches;r.dataset.theme=dark?"light":"dark"});
+
+(async()=>{
+  try{D=await api("/api/data");canEdit=D.editable;$("editBtn").hidden=!canEdit;
+    const h=location.hash.slice(1);if(["pids","dvb","old","taxas","isdb","hist"].includes(h))view=h;
+    if(view==="hist")auditLog=await api("/api/auditLog").catch(()=>[]);
+    render();
+  }catch(e){$("app").innerHTML=`<p class="state">Não foi possível carregar os dados do banco. ${esc(e.message)}</p>`}
+})();
+</script>
+</body>
+</html>

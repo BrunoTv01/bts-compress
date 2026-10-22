@@ -1,0 +1,69 @@
+# BTS Compress
+
+Sistema web do estudo **BTS Compress (03/08/2026)**: serviços, PIDs e bitrates DVB e ISDB-T, guardados num banco PostgreSQL e editáveis pelo navegador.
+
+## O que tem
+
+- **Serviços & PIDs**: mapa de PIDs decimais de cada serviço e bitrate titular, com a ocupação do mux DVB (32,297 Mbps).
+- **DVB atual**: titular x reserva, com a diferença por serviço.
+- **DVB antigo**: configuração antiga comparada com a atual.
+- **Taxas encoder / mux**: áudio, vídeo e closed caption de cada serviço.
+- **ISDB-T**: serviços por layer e taxa medida de cada PID.
+- **Histórico**: toda alteração feita pelo sistema fica registrada (valor anterior, novo e horário).
+
+Os totais, sobras e percentuais são recalculados a partir do banco a cada edição.
+
+## Rodar no Render (recomendado)
+
+1. No Render, clique em **New → Blueprint** e escolha este repositório.
+2. O `render.yaml` cria o serviço web e o banco PostgreSQL gratuitos.
+3. No primeiro start o sistema cria as tabelas e carrega os dados da planilha sozinho.
+4. A senha de edição é a variável `ADMIN_TOKEN`, gerada automaticamente. Veja em **bts-compress → Environment**.
+
+No site, clique em **Editar valores**, informe a senha e clique em qualquer valor sublinhado para alterar.
+
+## Rodar localmente
+
+Precisa de Node.js 20+ e PostgreSQL.
+
+```bash
+createdb bts
+npm install
+DATABASE_URL=postgres://localhost:5432/bts ADMIN_TOKEN=minha-senha npm start
+```
+
+Abra http://localhost:3000.
+
+## Variáveis de ambiente
+
+| Variável       | Uso                                                        |
+|----------------|------------------------------------------------------------|
+| `DATABASE_URL` | Conexão do PostgreSQL                                      |
+| `ADMIN_TOKEN`  | Senha de edição. Sem ela, o sistema fica só leitura        |
+| `PGSSL`        | `true` para conectar com SSL (banco externo ao Render)     |
+| `PORT`         | Porta HTTP (o Render define sozinho)                       |
+
+## API
+
+| Método | Rota                    | Descrição                                   |
+|--------|-------------------------|---------------------------------------------|
+| GET    | `/api/data`             | Todos os dados do estudo                    |
+| GET    | `/api/history`          | Últimas 200 alterações                      |
+| PATCH  | `/api/:tabela/:id`      | Edita um campo (`{ field, value }`), exige `Authorization: Bearer <ADMIN_TOKEN>` |
+| GET    | `/api/health`           | Verifica se o banco responde                |
+
+## Banco de dados
+
+O esquema está em `db/schema.sql` e os dados iniciais da planilha em `db/seed.js`.
+Para recarregar os dados originais, apague as tabelas e reinicie o serviço.
+
+| Tabela          | Conteúdo                                                    |
+|-----------------|-------------------------------------------------------------|
+| `services`      | Cadastro de serviços (ID, nome, codificação, sistema)       |
+| `service_pids`  | PIDs de vídeo, áudio, PCR, PMT, CC, AIT, ECT, dados         |
+| `bitrates`      | Bitrates por configuração: pids_total, titular, reserva, antigo |
+| `encoder_rates` | Taxas de encoder e mux                                      |
+| `isdb_layers`   | Serviços ISDB-T por layer                                   |
+| `isdb_pids`     | PIDs ISDB-T e taxa medida                                   |
+| `settings`      | Capacidades (banda DVB, layer B)                            |
+| `audit_log`     | Histórico de alterações                                     |
