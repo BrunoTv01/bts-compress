@@ -109,3 +109,6 @@ UPDATE bitrates b SET equipment_id = (SELECT min(id) FROM equipment e WHERE e.na
 WHERE b.encoder IS NOT NULL AND b.equipment_id IS NULL;
 UPDATE encoder_rates r SET equipment_id = (SELECT min(id) FROM equipment e WHERE e.name = r.equipment), equipment = NULL
 WHERE r.equipment IS NOT NULL AND r.equipment_id IS NULL;
+
+-- Equipamento usado por serviço ISDB-T
+ALTER TABLE isdb_layers ADD COLUMN IF NOT EXISTS equipment_id INTEGER REFERENCES equipment(id) ON DELETE SET NULL;
