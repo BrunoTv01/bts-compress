@@ -107,6 +107,10 @@ td.nil{color:var(--line)}
 .mt{display:inline-block;width:64px;height:6px;border-radius:3px;background:var(--bg);overflow:hidden;flex:0 0 auto}
 .mt i{display:block;height:100%;border-radius:3px}
 .pc{font-size:11px;color:var(--muted);min-width:3.6em;text-align:right}
+td.equip{min-width:170px;white-space:normal}
+.eq{display:inline-block;font-size:13px;font-weight:500;padding:2px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent)}
+.ph{font-size:13px;color:var(--warn);font-weight:500}
+td input.cell.text{width:100%;min-width:160px;text-align:left;font-family:var(--body)}
 .dl{display:inline-block;font-family:var(--mono);font-size:12.5px;padding:1px 8px;border-radius:999px}
 .dl.up{background:var(--bad-bg);color:var(--bad)} .dl.down{background:var(--ok-bg);color:var(--ok)} .dl.eq{color:var(--muted)}
 td.ed{cursor:pointer;box-shadow:inset 0 -2px 0 var(--warn-bg)}
@@ -202,8 +206,9 @@ function build(){
     if(b)row._ref.br=ref("bitrates",b.id,"mbps",`${s.name} · PIDs total`);return row});
   const tit=br("titular"),res=br("reserva"),old=br("antigo");
   const nowRows=tit.map(t=>{const s=svc[t.service_id],r=res.find(x=>x.service_id===t.service_id);
-    return {id:s.service_id,svc:s.name,tit:t.mbps,res:r?.mbps??null,d:r&&t.mbps!=null&&r.mbps!=null?r3(r.mbps-t.mbps):null,
-      _ref:{tit:ref("bitrates",t.id,"mbps",`${s.name} · titular`),...(r?{res:ref("bitrates",r.id,"mbps",`${s.name} · reserva`)}:{})}}});
+    return {id:s.service_id,svc:s.name,encT:t.encoder||null,tit:t.mbps,encR:r?.encoder||null,res:r?.mbps??null,d:r&&t.mbps!=null&&r.mbps!=null?r3(r.mbps-t.mbps):null,
+      _ref:{tit:ref("bitrates",t.id,"mbps",`${s.name} · titular`),encT:{...ref("bitrates",t.id,"encoder",`${s.name} · encoder titular`),kind:"text"},
+        ...(r?{res:ref("bitrates",r.id,"mbps",`${s.name} · reserva`),encR:{...ref("bitrates",r.id,"encoder",`${s.name} · encoder reserva`),kind:"text"}}:{})}}});
   const oldRows=old.map(o=>{const s=svc[o.service_id],t=tit.find(x=>x.service_id===o.service_id);
     return {id:s.service_id,svc:o.label||s.name,br:o.mbps,now:t?.mbps??null,d:t&&o.mbps!=null&&t.mbps!=null?r3(t.mbps-o.mbps):null,_ref:{br:ref("bitrates",o.id,"mbps",`${s.name} · antigo`)}}});
   const taxRows=D.encoder.filter(e=>e.source===taxMode).map(e=>{const s=svc[e.service_id];const row={svc:s.name,isdb:s.system,_ref:{}};
@@ -231,8 +236,8 @@ function views(B){
     lede:"Comparação das taxas configuradas no sistema titular e no sistema reserva, serviço a serviço.",
     cards:card("Disponível",nf.format(AV),"Mbps")+card("Usado titular",nf.format(usedT),"Mbps",`Sobra ${nf.format(r3(AV-usedT))} Mbps`,AV-usedT<0?"bad":"")+card("Usado reserva",nf.format(usedR),"Mbps",`Sobra ${nf.format(r3(AV-usedR))} Mbps`,AV-usedR<0?"bad":"")+card("Serviços",B.nowRows.length,"","em cada sistema"),
     usage:usageBar("Titular",B.nowRows.map(r=>({n:r.svc,v:r.tit})),AV)+usageBar("Reserva",B.nowRows.map(r=>({n:r.svc,v:r.res})),AV),
-    tables:[{rows:B.nowRows,foot:true,cols:[["Serviço","svc","svcid"],["Titular (Mbps)","tit","br",{bar:AV}],["Reserva (Mbps)","res","br",{bar:AV}],["Diferença (R − T)","d","delta"]]}],
-    notes:[["Diferença em vermelho: reserva usa mais banda que o titular. Em verde: usa menos."]]},
+    tables:[{rows:B.nowRows,foot:true,groups:[["Identificação",1],["Titular",2],["Reserva",2],["Comparação",1]],cols:[["Serviço","svc","svcid"],["Encoder","encT","equip"],["Mbps","tit","br",{bar:AV}],["Encoder","encR","equip"],["Mbps","res","br",{bar:AV}],["Diferença (R − T)","d","delta"]]}],
+    notes:[["Diferença em vermelho: reserva usa mais banda que o titular. Em verde: usa menos."],[`Encoder informado em ${B.nowRows.filter(r=>r.encT).length} de ${B.nowRows.length} serviços no titular e ${B.nowRows.filter(r=>r.encR).length} no reserva. Para preencher, clique em Editar valores.`]]},
    old:{tab:"DVB antigo",eyebrow:"DVB · Configuração antiga",title:"Bitrates antigos x atuais",
     lede:"Taxas da configuração antiga do DVB comparadas com as atuais do titular.",
     cards:card("Disponível",nf.format(AV),"Mbps")+card("Utilizado",nf.format(usedO),"Mbps")+freeCard("Sobra",AV-usedO,"good")+card("Serviços",B.oldRows.length,""),
@@ -281,6 +286,10 @@ function cell(c,r,gs){
     const p=v/o.bar*100;
     return `<td ${C("num r")}><span class="brv"><span class="mt" title="${nf.format(+p.toFixed(1))}% da capacidade"><i style="width:${Math.min(100,p)}%;background:${col(r.svc||r.grp||"")}"></i></span><span class="pc">${nf.format(+p.toFixed(1))}%</span><span>${fmt(v)}</span>${flag}</span></td>`;
   }
+  if(c[2]==="equip"){
+    if(rf)return `<td class="ed equip ${cls}" data-ref='${esc(JSON.stringify(rf))}' tabindex="0" title="Clique para informar o encoder">${v?esc(v):'<span class="ph">+ informar</span>'}</td>`;
+    return `<td ${C("equip"+(v?"":" nil"))}>${v?`<span class="eq">${esc(v)}</span>`:"—"}</td>`;
+  }
   if(c[2]==="pid")return rf?`<td${ed}>${v??"—"}</td>`:`<td ${C("num"+(v==null?" nil":""))}>${v??"—"}</td>`;
   if(c[2]==="num")return rf?`<td${ed}>${fmt(v)}</td>`:`<td ${C("num"+(v==null?" nil":""))}>${fmt(v)}</td>`;
   return `<td ${C("")}>${esc(fmt(v))}</td>`;
@@ -309,7 +318,7 @@ function render(keepSearch){
     <section class="cards">${V.cards}</section>${V.usage}
     <div class="tools"><input id="q" type="search" placeholder="Buscar serviço, PID ou valor…" aria-label="Buscar">${V.extra||""}<span class="count" id="count"></span></div>
     ${editing?'<p class="notes"><span class="chip c-warn">Modo edição</span> Clique num valor sublinhado, digite e aperte Enter. Esc cancela. Deixe vazio para apagar.</p>':""}
-    <div id="tables"></div><div class="notes">${V.notes.map(([n,f])=>`<p class="${f?"flag":""}">${esc(n)}</p>`).join("")}</div>`;
+    <datalist id="encoders">${[...new Set(D.bitrates.map(b=>b.encoder).filter(Boolean))].sort().map(e=>`<option value="${esc(e)}">`).join("")}</datalist><div id="tables"></div><div class="notes">${V.notes.map(([n,f])=>`<p class="${f?"flag":""}">${esc(n)}</p>`).join("")}</div>`;
   $("q").value=q;renderTables();
 }
 
@@ -324,16 +333,18 @@ function applyLocal(rf,value){
 }
 function startEdit(el){
   if(el.querySelector("input"))return;
-  const rf=JSON.parse(el.dataset.ref),old=el.textContent.trim();
-  el.innerHTML=`<input class="cell" inputmode="decimal" value="${old==="—"?"":esc(old.replace(/\./g,""))}" aria-label="Novo valor">`;
+  const rf=JSON.parse(el.dataset.ref),isText=rf.kind==="text";
+  const old=el.querySelector(".ph")?"—":el.textContent.trim(),oldHtml=el.innerHTML;
+  const start=old==="—"?"":isText?old:old.replace(/\./g,"");
+  el.innerHTML=isText?`<input class="cell text" list="encoders" value="${esc(start)}" placeholder="Ex.: Ateme Titan Live" aria-label="Encoder">`:`<input class="cell" inputmode="decimal" value="${esc(start)}" aria-label="Novo valor">`;
   const inp=el.querySelector("input");inp.focus();inp.select();
   let done=false;
   const finish=async save=>{if(done)return;done=true;
-    if(!save||inp.value.trim()===(old==="—"?"":old.replace(/\./g,""))){el.textContent=old;return}
+    if(!save||inp.value.trim()===start){el.innerHTML=oldHtml;return}
     try{const r=await api(`/api/${rf.t}/${encodeURIComponent(rf.id)}`,{method:"PATCH",token:getToken(),body:JSON.stringify({field:rf.f,value:inp.value.trim(),context:rf.ctx})});
       applyLocal(rf,r.value);toast("Valor salvo");
       auditLog=await api("/api/history").catch(()=>auditLog);render(true);
-    }catch(e){el.textContent=old;toast(e.message,true);if(e.status===401){setToken("");setEditing(false)}}};
+    }catch(e){el.innerHTML=oldHtml;toast(e.message,true);if(e.status===401){setToken("");setEditing(false)}}};
   inp.addEventListener("keydown",e=>{if(e.key==="Enter")finish(true);if(e.key==="Escape")finish(false)});
   inp.addEventListener("blur",()=>finish(true));
 }

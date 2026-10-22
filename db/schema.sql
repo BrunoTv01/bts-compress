@@ -73,3 +73,6 @@ CREATE TABLE IF NOT EXISTS audit_log (
   new_value  TEXT,
   context    TEXT
 );
+
+-- Equipamento (encoder) usado por serviço em cada configuração
+ALTER TABLE bitrates ADD COLUMN IF NOT EXISTS encoder TEXT;

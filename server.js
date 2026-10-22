@@ -20,7 +20,7 @@ const pool = new pg.Pool({
 // Campos que podem ser editados pelo sistema: tabela -> { chave primária, colunas, tipo }
 const EDITABLE = {
   settings:      { pk: 'key',        cols: ['value'], type: 'number' },
-  bitrates:      { pk: 'id',         cols: ['mbps'],  type: 'number', text: ['note'] },
+  bitrates:      { pk: 'id',         cols: ['mbps'],  type: 'number', text: ['note', 'encoder'] },
   service_pids:  { pk: 'service_id', cols: ['v', 'a1', 'a2', 'a3', 'a4', 'pcr', 'pmt', 'dem', 'ait', 'cc', 'ect', 'data'], type: 'int' },
   encoder_rates: { pk: 'id',         cols: ['a1', 'a2', 'a3', 'a4', 'v', 'cc'], type: 'number' },
   isdb_layers:   { pk: 'id',         cols: ['mbps'],  type: 'number' },
@@ -111,7 +111,7 @@ app.patch('/api/:table/:id', requireAdmin, async (req, res, next) => {
     if (type === 'int' && n > 8191) return res.status(400).json({ error: 'PID vai de 0 a 8191.' });
     value = n;
   }
-  if (type === 'text' && value !== null) value = String(value).slice(0, 500);
+  if (type === 'text' && value !== null) value = String(value).trim().slice(0, 500) || null;
 
   const t = req.params.table;
   const client = await pool.connect();
