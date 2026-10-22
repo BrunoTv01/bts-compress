@@ -18,7 +18,7 @@ Os totais, sobras e percentuais são recalculados a partir do banco a cada ediç
 1. No Render, clique em **New → Blueprint** e escolha este repositório.
 2. O `render.yaml` cria o serviço web e o banco PostgreSQL gratuitos.
 3. No primeiro start o sistema cria as tabelas e carrega os dados da planilha sozinho.
-4. A senha de edição é a variável `ADMIN_TOKEN`, gerada automaticamente. Veja em **bts-compress → Environment**.
+4. Defina a senha de edição em **bts-compress → Environment → ADMIN_TOKEN** e salve.
 
 No site, clique em **Editar valores**, informe a senha e clique em qualquer valor sublinhado para alterar.
 
