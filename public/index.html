@@ -43,7 +43,7 @@ header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1
 
 .login{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-block:10px;border-top:1px solid var(--line);font-size:14px}
 .login input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:0;flex:0 1 260px}
-.login .msg{color:var(--bad)}
+.login .msg{color:var(--warn)}
 
 .tabs{display:flex;gap:8px;overflow-x:auto;padding-block:14px;scrollbar-width:thin}
 .tab{flex:0 0 auto;font:inherit;font-size:14px;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--muted);padding:6px 14px;border-radius:999px;cursor:pointer}
@@ -306,13 +306,13 @@ function views(B){
     lede:"Cadastre os canais e escolha em quais abas eles aparecem. Excluir um serviço aqui remove ele de todas as abas.",
     cards:card("Serviços",B.svcRows.length,"")+card("DVB",B.svcRows.filter(r=>r.system!=="ISDB-T").length,"")+card("ISDB-T",B.svcRows.filter(r=>r.system==="ISDB-T").length,"")+card("Sem aba",B.svcRows.filter(r=>!r._where.length).length,"","serviços que não aparecem em nenhuma tabela"),
     usage:"",form:"svc",
-    tables:[{rows:B.svcRows,cols:[["Nome","name","ename"],["ID de serviço","service_id","pid"],["Codificação","codec","txt"],["Sistema","system","func"],["Aparece em","where","where"],...(editing?[["","sid","delsvc"]]:[])]}],
+    tables:[{rows:B.svcRows,cols:[["Nome","name","ename"],["ID de serviço","service_id","pid"],["Codificação","codec","txt"],["Sistema","system","func"],["Aparece em","where","where"],...(canEdit?[["","sid","delsvc"]]:[])]}],
     notes:[["Para tirar um serviço de uma aba só, use o botão Excluir na própria aba. O botão Excluir daqui apaga o serviço e todos os valores dele."]]},
    equip:{tab:"Equipamentos",eyebrow:"Sistema · cadastro",title:"Equipamentos",
     lede:"Cadastre os equipamentos que fazem cada processo (encoders, multiplexadores, moduladores). Depois escolha o equipamento nas abas DVB atual, Taxas encoder / mux e ISDB-T.",
     cards:card("Cadastrados",B.equipRows.length,"")+card("Encoders",B.equipRows.filter(r=>/encoder/i.test(r.function||"")).length,"")+card("Multiplexadores",B.equipRows.filter(r=>/mux|multiplex/i.test(r.function||"")).length,"")+card("Em uso",B.equipRows.filter(r=>r.uso>0).length,"",`${B.equipRows.filter(r=>!r.uso).length} sem uso`),
     usage:"",form:"equip",
-    tables:[{rows:B.equipRows,cols:[["Nome","name","ename"],["Fabricante","manufacturer","txt"],["Modelo","model","txt"],["Função","function","func"],["Local","location","txt"],["Nº de série","serial","txt"],["Observação","notes","txt"],["Em uso","uso","uso"],...(editing?[["","eid","act"]]:[])]}],
+    tables:[{rows:B.equipRows,cols:[["Nome","name","ename"],["Fabricante","manufacturer","txt"],["Modelo","model","txt"],["Função","function","func"],["Local","location","txt"],["Nº de série","serial","txt"],["Observação","notes","txt"],["Em uso","uso","uso"],...(canEdit?[["","eid","act"]]:[])]}],
     notes:[["Excluir um equipamento não apaga os serviços: eles só ficam sem equipamento definido."]]},
    hist:{tab:"Histórico",eyebrow:"Sistema · auditoria",title:"Histórico de alterações",
     lede:"Cada valor editado no sistema fica registrado aqui, com o valor anterior e o novo.",
@@ -364,7 +364,7 @@ function cell(c,r,gs){
 function renderTables(){
   const q=($("q")?.value||"").trim().toLowerCase();let shown=0,tot=0;
   $("tables").innerHTML=V.tables.map((t0,ti)=>{
-    const hasDel=editing&&t0.rows.some(r=>r._del);
+    const hasDel=canEdit&&t0.rows.some(r=>r._del);
     const t=hasDel?{...t0,cols:[...t0.cols,["","_del","del"]],groups:t0.groups?[...t0.groups,["",1]]:null}:t0;
     const key=view+ti,s=sorts[key];let rows=t.rows;tot+=rows.length;
     if(q)rows=rows.filter(r=>Object.entries(r).some(([k,v])=>k!=="_ref"&&k!=="_uses"&&v!=null&&String(v).toLowerCase().includes(q)));
@@ -374,7 +374,7 @@ function renderTables(){
     const starts=new Set();if(t.groups){let i=0;for(const [,n] of t.groups){if(i>0)starts.add(i);i+=n}}
     const groups=t.groups?`<tr class="groups">${t.groups.map(([g,n],i)=>`<th colspan="${n}" class="${i===t.groups.length-1&&t.cols.at(-1)[3]?.stickR?"stick-r":""}">${g}</th>`).join("")}</tr>`:"";
     const foot=t.foot&&rows.length?`<tfoot><tr>${t.cols.map((c,i)=>{const cl=[starts.has(i)?"gs":"",c[3]?.stickR?"stick-r":""].join(" ");return c[2]==="br"?`<td class="num r ${cl}">${nf.format(sumBy(rows,c[1]))}</td>`:i===0?`<td class="${cl}">Total</td>`:`<td class="${cl}"></td>`}).join("")}</tr></tfoot>`:"";
-    return `${t.h?`<h2>${t.h}</h2>`:""}${editing&&t.add?t.add():""}<div class="tablebox"><table class="${t.groups?"grouped":""}"><thead>${groups}<tr class="cols">${t.cols.map((c,i)=>`<th class="${["br","delta"].includes(c[2])?"r":""} ${starts.has(i)?"gs":""} ${c[3]?.stickR?"stick-r":""}"><button data-t="${ti}" data-k="${c[1]}">${c[0]}${s&&s.k===c[1]?`<span class="arw">${s.asc?" ▲":" ▼"}</span>`:""}</button></th>`).join("")}</tr></thead>
+    return `${t.h?`<h2>${t.h}</h2>`:""}${canEdit&&t.add?t.add():""}<div class="tablebox"><table class="${t.groups?"grouped":""}"><thead>${groups}<tr class="cols">${t.cols.map((c,i)=>`<th class="${["br","delta"].includes(c[2])?"r":""} ${starts.has(i)?"gs":""} ${c[3]?.stickR?"stick-r":""}"><button data-t="${ti}" data-k="${c[1]}">${c[0]}${s&&s.k===c[1]?`<span class="arw">${s.asc?" ▲":" ▼"}</span>`:""}</button></th>`).join("")}</tr></thead>
     <tbody>${rows.length?rows.map(r=>`<tr>${t.cols.map((c,i)=>cell(c,r,starts.has(i))).join("")}</tr>`).join(""):`<tr><td colspan="${t.cols.length}" class="empty">${q?"Nada encontrado para essa busca.":"Nenhum registro ainda."}</td></tr>`}</tbody>${foot}</table></div>`;
   }).join("");
   $("count").textContent=q?`${shown} de ${tot} linhas`:`${tot} linhas`;
@@ -446,7 +446,7 @@ function startSelect(el,rf){
   sel.addEventListener("blur",()=>{if(!done){done=true;el.innerHTML=oldHtml}});
 }
 function equipForm(){
-  if(!editing)return `<p class="editbar"><span class="chip c-acc">Cadastro</span><span>Para cadastrar ou alterar equipamentos, clique em <b>Editar valores</b> no topo.</span></p>`;
+  if(!canEdit)return "";
   return `<form class="eqform" id="eqForm" autocomplete="off">
     <h2>Cadastrar equipamento</h2>
     <div class="eqgrid">
@@ -470,7 +470,7 @@ function addBar(key,title,fields){
   return `<form class="addbar" data-add="${key}" autocomplete="off"><span class="ttl">+ ${title}</span>${fields}${fields.includes("empty-pick")?"":`<button class="btn primary" type="submit">Incluir</button>`}<span class="msg"></span></form>`;
 }
 function svcForm(){
-  if(!editing)return `<p class="editbar"><span class="chip c-acc">Cadastro</span><span>Para incluir ou excluir serviços, clique em <b>Editar valores</b> no topo.</span></p>`;
+  if(!canEdit)return "";
   const opts=[["pids","Serviços & PIDs",1],["titular","DVB titular",1],["reserva","DVB reserva",1],["antigo","DVB antigo",0],["enc","Taxas encoder",0],["mux","Taxas mux",0],["isdb","ISDB-T (layer B)",0]];
   return `<form class="eqform" id="svcForm" autocomplete="off">
     <h2>Cadastrar serviço</h2>
@@ -498,6 +498,10 @@ const ADDERS={
   layer:async f=>{await postRow("isdb_layers",{layer:f.layer,name:f.name,mbps:f.mbps,context:"ISDB-T layers"})},
   isdbpid:async f=>{await postRow("isdb_pids",{grp:f.grp,pid:f.pid,ident:f.ident,mbps:f.mbps,context:"ISDB-T PIDs"})},
 };
+function askLogin(){
+  $("login").hidden=false;$("loginMsg").textContent="Digite a senha de edição para incluir, excluir ou alterar.";
+  window.scrollTo({top:0,behavior:"smooth"});setTimeout(()=>$("token").focus(),300);
+}
 function setEditing(on){editing=on;$("editBtn").classList.toggle("on",on);$("editBtn").textContent=on?"Sair da edição":"Editar valores";render(true)}
 
 /* ===== Eventos ===== */
@@ -505,6 +509,7 @@ $("tabs").addEventListener("click",async e=>{const b=e.target.closest(".tab");if
 $("app").addEventListener("click",e=>{
   const m=e.target.closest("[data-m]");if(m){taxMode=m.dataset.m;render(true);return}
   const th=e.target.closest("th button");if(th){const key=view+th.dataset.t,s=sorts[key];sorts[key]={k:th.dataset.k,asc:s&&s.k===th.dataset.k?!s.asc:true};renderTables();return}
+  if(e.target.closest("[data-delrows],[data-delsvc],[data-del]")&&!editing){askLogin();return}
   const arm=b=>{if(b.dataset.armed==="1")return true;b.dataset.armed="1";b.textContent="Confirmar exclusão";setTimeout(()=>{if(b.isConnected){b.dataset.armed="";b.textContent="Excluir"}},4000);return false};
   const dr=e.target.closest("[data-delrows]");if(dr){if(!arm(dr))return;const {rows,name}=JSON.parse(dr.dataset.delrows);
     (async()=>{try{for(const [t,id] of rows)await api(`/api/rows/${t}/${encodeURIComponent(id)}?context=${encodeURIComponent((V.tab||"")+" · "+name)}`,{method:"DELETE",token:getToken()});await reload("Linha excluída")}catch(err){authFail(err);reload()}})();return}
@@ -518,6 +523,7 @@ $("app").addEventListener("click",e=>{
   const ed=e.target.closest("td.ed,.edv");if(ed)startEdit(ed);
 });
 $("app").addEventListener("submit",async e=>{
+  if(!editing&&(e.target.closest("form[data-add]")||["svcForm","eqForm"].includes(e.target.id))){e.preventDefault();askLogin();return}
   const ab=e.target.closest("form[data-add]");
   if(ab){e.preventDefault();const f=Object.fromEntries(new FormData(ab).entries()),msg=ab.querySelector(".msg");msg.textContent="";
     try{await ADDERS[ab.dataset.add](f);await reload("Linha incluída")}catch(err){msg.textContent=err.message;if(err.status===401){setToken("");setEditing(false)}}return}
