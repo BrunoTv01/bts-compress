@@ -9,7 +9,9 @@ const { seed } = require('./db/seed');
 pg.types.setTypeParser(1700, v => (v === null ? null : parseFloat(v)));
 
 const PORT = process.env.PORT || 3000;
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+// Remove espaços, quebras de linha e aspas que às vezes vêm junto ao colar a senha no painel
+const ADMIN_TOKEN = (process.env.ADMIN_TOKEN || '').trim().replace(/^["']|["']$/g, '');
+const sha = s => crypto.createHash('sha256').update(String(s), 'utf8').digest();
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL || 'postgres://localhost:5432/bts',
   ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
@@ -45,10 +47,11 @@ async function migrate() {
 }
 
 function requireAdmin(req, res, next) {
-  const token = (req.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  const ok = ADMIN_TOKEN && token.length === ADMIN_TOKEN.length &&
-    crypto.timingSafeEqual(Buffer.from(token), Buffer.from(ADMIN_TOKEN));
-  if (!ok) return res.status(401).json({ error: 'Senha de edição inválida.' });
+  const token = (req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  if (!ADMIN_TOKEN) return res.status(401).json({ error: 'Nenhuma senha configurada no servidor (ADMIN_TOKEN vazio).' });
+  // Compara os hashes: funciona com acentos e símbolos e não revela o tamanho da senha
+  const ok = crypto.timingSafeEqual(sha(token), sha(ADMIN_TOKEN));
+  if (!ok) return res.status(401).json({ error: 'Senha de edição incorreta.' });
   next();
 }
 
@@ -136,5 +139,8 @@ app.use((err, _req, res, _next) => {
 });
 
 migrate()
-  .then(() => app.listen(PORT, () => console.log(`BTS Compress rodando na porta ${PORT}`)))
+  .then(() => app.listen(PORT, () => {
+    console.log(`BTS Compress rodando na porta ${PORT}`);
+    console.log(ADMIN_TOKEN ? `Senha de edição configurada (${ADMIN_TOKEN.length} caracteres).` : 'ADMIN_TOKEN vazio: edição desativada.');
+  }))
   .catch(e => { console.error('Falha ao preparar o banco:', e); process.exit(1); });

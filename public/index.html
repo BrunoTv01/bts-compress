@@ -320,7 +320,8 @@ $("editBtn").addEventListener("click",async()=>{
   $("login").hidden=false;$("token").focus();
 });
 $("login").addEventListener("submit",async e=>{e.preventDefault();$("loginMsg").textContent="";
-  try{await api("/api/auth/check",{method:"POST",token:$("token").value});setToken($("token").value);$("token").value="";$("login").hidden=true;setEditing(true)}
+  const tk=$("token").value.trim();
+  try{await api("/api/auth/check",{method:"POST",token:tk});setToken(tk);$("token").value="";$("login").hidden=true;setEditing(true)}
   catch(err){$("loginMsg").textContent=err.message}});
 $("loginCancel").addEventListener("click",()=>{$("login").hidden=true;$("loginMsg").textContent=""});
 $("themeBtn").addEventListener("click",()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches;r.dataset.theme=dark?"light":"dark"});
