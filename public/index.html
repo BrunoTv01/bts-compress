@@ -110,6 +110,20 @@ td.nil{color:var(--line)}
 td.equip{min-width:170px;white-space:normal}
 .eq{display:inline-block;font-size:13px;font-weight:500;padding:2px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent)}
 .ph{font-size:13px;color:var(--warn);font-weight:500}
+.eqm{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+td.tx{white-space:normal;min-width:120px}
+.btn.sm{font-size:12.5px;padding:4px 10px}
+.btn.danger{color:var(--bad);border-color:var(--bad-bg)}
+.btn.danger[data-armed="1"]{background:var(--bad);border-color:var(--bad);color:#fff}
+.eqform{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px 16px 16px;margin-bottom:16px}
+.eqform h2{margin:14px 0 12px}
+.eqgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.eqgrid label{display:grid;gap:4px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.eqgrid input{font:inherit;font-size:14px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+.eqgrid .wide{grid-column:1/-1}
+.eqactions{display:flex;gap:12px;align-items:center;margin-top:14px}
+.eqactions .msg{color:var(--bad);font-size:14px}
+select.cell.text{font:inherit;font-size:13.5px;color:var(--fg);background:var(--bg);border:1px solid var(--accent);border-radius:4px;padding:4px 6px;width:100%;min-width:180px}
 td input.cell.text{width:100%;min-width:160px;text-align:left;font-family:var(--body)}
 .dl{display:inline-block;font-family:var(--mono);font-size:12.5px;padding:1px 8px;border-radius:999px}
 .dl.up{background:var(--bad-bg);color:var(--bad)} .dl.down{background:var(--ok-bg);color:var(--ok)} .dl.eq{color:var(--muted)}
@@ -207,16 +221,24 @@ function build(){
     if(b)row._ref.br=ref("bitrates",b.id,"mbps",`${s.name} · PIDs total`);return row});
   const tit=br("titular"),res=br("reserva"),old=br("antigo");
   const nowRows=tit.map(t=>{const s=svc[t.service_id],r=res.find(x=>x.service_id===t.service_id);
-    return {id:s.service_id,svc:s.name,encT:t.encoder||null,tit:t.mbps,encR:r?.encoder||null,res:r?.mbps??null,d:r&&t.mbps!=null&&r.mbps!=null?r3(r.mbps-t.mbps):null,
-      _ref:{tit:ref("bitrates",t.id,"mbps",`${s.name} · titular`),encT:{...ref("bitrates",t.id,"encoder",`${s.name} · encoder titular`),kind:"text"},
-        ...(r?{res:ref("bitrates",r.id,"mbps",`${s.name} · reserva`),encR:{...ref("bitrates",r.id,"encoder",`${s.name} · encoder reserva`),kind:"text"}}:{})}}});
+    return {id:s.service_id,svc:s.name,encT:t.equipment_id??null,tit:t.mbps,encR:r?.equipment_id??null,res:r?.mbps??null,d:r&&t.mbps!=null&&r.mbps!=null?r3(r.mbps-t.mbps):null,
+      _txt:[eqLabel(t.equipment_id),eqLabel(r?.equipment_id)].join(" "),
+      _ref:{tit:ref("bitrates",t.id,"mbps",`${s.name} · titular`),encT:{...ref("bitrates",t.id,"equipment_id",`${s.name} · encoder titular`),kind:"equip",prefer:"Encoder"},
+        ...(r?{res:ref("bitrates",r.id,"mbps",`${s.name} · reserva`),encR:{...ref("bitrates",r.id,"equipment_id",`${s.name} · encoder reserva`),kind:"equip",prefer:"Encoder"}}:{})}}});
   const oldRows=old.map(o=>{const s=svc[o.service_id],t=tit.find(x=>x.service_id===o.service_id);
     return {id:s.service_id,svc:o.label||s.name,br:o.mbps,now:t?.mbps??null,d:t&&o.mbps!=null&&t.mbps!=null?r3(t.mbps-o.mbps):null,_ref:{br:ref("bitrates",o.id,"mbps",`${s.name} · antigo`)}}});
-  const taxRows=D.encoder.filter(e=>e.source===taxMode).map(e=>{const s=svc[e.service_id];const row={svc:s.name,isdb:s.system,equip:e.equipment||null,_ref:{equip:{...ref("encoder_rates",e.id,"equipment",`${s.name} · equipamento ${taxMode==="enc"?"encoder":"mux"}`),kind:"text"}}};
+  const taxRows=D.encoder.filter(e=>e.source===taxMode).map(e=>{const s=svc[e.service_id];const row={svc:s.name,isdb:s.system,equip:e.equipment_id??null,_txt:eqLabel(e.equipment_id),_ref:{equip:{...ref("encoder_rates",e.id,"equipment_id",`${s.name} · equipamento ${taxMode==="enc"?"encoder":"mux"}`),kind:"equip",prefer:taxMode==="enc"?"Encoder":"Multiplexador"}}};
     for(const k of["a1","a2","a3","a4","v","cc"]){row[k]=e[k];row._ref[k]=ref("encoder_rates",e.id,k,`${s.name} · ${taxMode} ${k}`)}return row});
   const layerRows=D.layers.map(l=>({layer:l.layer,svc:l.name,br:l.mbps,_ref:{br:ref("isdb_layers",l.id,"mbps",`ISDB-T ${l.name}`)}}));
   const isdbPidRows=D.isdbPids.map(p=>({grp:p.grp,pid:p.pid,ident:p.ident,br:p.mbps,_ref:{pid:ref("isdb_pids",p.id,"pid",`ISDB-T ${p.grp} ${p.ident}`),br:ref("isdb_pids",p.id,"mbps",`ISDB-T ${p.grp} ${p.ident}`)}}));
-  return {pidsRows,nowRows,oldRows,taxRows,layerRows,isdbPidRows,svc};
+  // equipamentos: onde cada um está em uso
+  const uses={};const addUse=(id,txt)=>{if(id!=null)(uses[id]??=[]).push(txt)};
+  for(const b of D.bitrates)if(["titular","reserva"].includes(b.config))addUse(b.equipment_id,`${svc[b.service_id].name} (${b.config})`);
+  for(const e of D.encoder)addUse(e.equipment_id,`${svc[e.service_id].name} (${e.source==="enc"?"encoder":"mux"})`);
+  const equipRows=D.equipment.map(e=>{const row={eid:e.id,name:e.name,manufacturer:e.manufacturer,model:e.model,function:e.function,location:e.location,serial:e.serial,notes:e.notes,uso:(uses[e.id]||[]).length,_uses:uses[e.id]||[],_ref:{}};
+    for(const f of["name","manufacturer","model","function","location","serial","notes"])row._ref[f]={...ref("equipment",e.id,f,`Equipamento ${e.name} · ${f}`),kind:"text",list:f==="function"?"functions":f==="manufacturer"?"makers":""};
+    return row});
+  return {pidsRows,nowRows,oldRows,taxRows,layerRows,isdbPidRows,equipRows,svc};
 }
 
 function views(B){
@@ -238,7 +260,7 @@ function views(B){
     cards:card("Disponível",nf.format(AV),"Mbps")+card("Usado titular",nf.format(usedT),"Mbps",`Sobra ${nf.format(r3(AV-usedT))} Mbps`,AV-usedT<0?"bad":"")+card("Usado reserva",nf.format(usedR),"Mbps",`Sobra ${nf.format(r3(AV-usedR))} Mbps`,AV-usedR<0?"bad":"")+card("Serviços",B.nowRows.length,"","em cada sistema"),
     usage:usageBar("Titular",B.nowRows.map(r=>({n:r.svc,v:r.tit})),AV)+usageBar("Reserva",B.nowRows.map(r=>({n:r.svc,v:r.res})),AV),
     tables:[{rows:B.nowRows,foot:true,groups:[["Identificação",1],["Titular",2],["Reserva",2],["Comparação",1]],cols:[["Serviço","svc","svcid"],["Encoder","encT","equip"],["Mbps","tit","br",{bar:AV}],["Encoder","encR","equip"],["Mbps","res","br",{bar:AV}],["Diferença (R − T)","d","delta"]]}],
-    notes:[["Diferença em vermelho: reserva usa mais banda que o titular. Em verde: usa menos."],[`Encoder informado em ${B.nowRows.filter(r=>r.encT).length} de ${B.nowRows.length} serviços no titular e ${B.nowRows.filter(r=>r.encR).length} no reserva. Para preencher, clique em Editar valores.`]]},
+    notes:[["Diferença em vermelho: reserva usa mais banda que o titular. Em verde: usa menos."],[`Encoder definido em ${B.nowRows.filter(r=>r.encT!=null).length} de ${B.nowRows.length} serviços no titular e ${B.nowRows.filter(r=>r.encR!=null).length} no reserva. Os equipamentos vêm da aba Equipamentos.`]]},
    old:{tab:"DVB antigo",eyebrow:"DVB · Configuração antiga",title:"Bitrates antigos x atuais",
     lede:"Taxas da configuração antiga do DVB comparadas com as atuais do titular.",
     cards:card("Disponível",nf.format(AV),"Mbps")+card("Utilizado",nf.format(usedO),"Mbps")+freeCard("Sobra",AV-usedO,"good")+card("Serviços",B.oldRows.length,""),
@@ -250,7 +272,7 @@ function views(B){
     cards:card("Vídeo total",nf.format(sumBy(B.taxRows,"v")),"Mbps",taxMode==="enc"?"Encoders":"Mux")+card("Áudio total",nf.format(["a1","a2","a3","a4"].reduce((s,k)=>s+sumBy(B.taxRows,k),0)),"kbps")+card("Serviços",B.taxRows.length,"")+card("ISDB-T",B.taxRows.filter(r=>r.isdb==="ISDB-T").length,"","serviços"),
     usage:"",extra:`<span class="seg" role="group" aria-label="Origem"><button type="button" data-m="enc" class="${taxMode==="enc"?"on":""}">Encoder</button><button type="button" data-m="mux" class="${taxMode==="mux"?"on":""}">Mux</button></span>`,
     tables:[{rows:B.taxRows,groups:[["Identificação",3],["Áudio (kbps)",4],["Vídeo",1],["Legenda",1]],cols:[["Serviço","svc","svc"],["Sistema","isdb","sys"],[taxMode==="enc"?"Encoder":"Mux","equip","equip"],["Áudio 1","a1","num"],["Áudio 2","a2","num"],["Áudio 3","a3","num"],["Áudio 4 · Atmos","a4","num"],["Mbps","v","num"],["CC kbps","cc","num"]]}],
-    notes:[["EPG e interatividade estão sem valor nas duas tabelas da planilha."],[`Equipamento informado em ${B.taxRows.filter(r=>r.equip).length} de ${B.taxRows.length} serviços (${taxMode==="enc"?"encoder":"mux"}). Encoder e mux têm campos separados: troque pelo botão acima.`]]},
+    notes:[["EPG e interatividade estão sem valor nas duas tabelas da planilha."],[`Equipamento definido em ${B.taxRows.filter(r=>r.equip!=null).length} de ${B.taxRows.length} serviços (${taxMode==="enc"?"encoder":"mux"}). Encoder e mux têm campos separados: troque pelo botão acima. Os equipamentos vêm da aba Equipamentos.`]]},
    isdb:{tab:"ISDB-T",eyebrow:"ISDB-T · Cinco canais",title:"ISDB-T: layers e PIDs",
     lede:"Sistema atual com as alterações de taxas, modulação e FEC: distribuição por layer e taxa medida de cada PID.",
     cards:card("Total layer B",nf.format(LBT),"Mbps")+card("Serviços layer B",nf.format(usedLB),"Mbps",`${pct(usedLB,LBT)}% da layer`)+card("Usado (planilha)",nf.format(LBR),"Mbps",`Sobra ${nf.format(r3(LBT-LBR))} Mbps`,LBT-LBR<1?"warn":"")+card("Layer A (1seg)",nf.format(sumBy(B.layerRows.filter(r=>r.layer==="A"),"br")),"Mbps"),
@@ -258,6 +280,12 @@ function views(B){
     tables:[{h:"Serviços por layer",rows:B.layerRows,foot:true,cols:[["Serviço (proposto)","svc","svc"],["Layer","layer","layer"],["Bitrate (Mbps)","br","br",{bar:LBT}]]},
             {h:"PIDs e taxas medidas",rows:B.isdbPidRows,foot:true,cols:[["Grupo","grp","svc"],["PID","pid","pid"],["Identificação","ident","txt"],["Bitrate (Mbps)","br","br",{bar:LBT}]]}],
     notes:[["“Usado (planilha)” é o valor informado na planilha e inclui tabelas e overhead; a soma dos serviços da layer B pode ser menor."]]},
+   equip:{tab:"Equipamentos",eyebrow:"Sistema · cadastro",title:"Equipamentos",
+    lede:"Cadastre os equipamentos que fazem cada processo (encoders, multiplexadores, moduladores). Depois escolha o equipamento nas abas DVB atual e Taxas encoder / mux.",
+    cards:card("Cadastrados",B.equipRows.length,"")+card("Encoders",B.equipRows.filter(r=>/encoder/i.test(r.function||"")).length,"")+card("Multiplexadores",B.equipRows.filter(r=>/mux|multiplex/i.test(r.function||"")).length,"")+card("Em uso",B.equipRows.filter(r=>r.uso>0).length,"",`${B.equipRows.filter(r=>!r.uso).length} sem uso`),
+    usage:"",form:true,
+    tables:[{rows:B.equipRows,cols:[["Nome","name","ename"],["Fabricante","manufacturer","txt"],["Modelo","model","txt"],["Função","function","func"],["Local","location","txt"],["Nº de série","serial","txt"],["Observação","notes","txt"],["Em uso","uso","uso"],...(editing?[["","eid","act"]]:[])]}],
+    notes:[["Excluir um equipamento não apaga os serviços: eles só ficam sem equipamento definido."]]},
    hist:{tab:"Histórico",eyebrow:"Sistema · auditoria",title:"Histórico de alterações",
     lede:"Cada valor editado no sistema fica registrado aqui, com o valor anterior e o novo.",
     cards:card("Alterações",auditLog.length,"","últimas 200")+card("Disponível DVB",`<span ${editing?`class="edv" ${avRef} style="cursor:pointer;border-bottom:2px dashed var(--warn)"`:""}>${nf.format(AV)}</span>`,"Mbps",editing?"Clique para editar":""),
@@ -288,9 +316,16 @@ function cell(c,r,gs){
     return `<td ${C("num r")}><span class="brv"><span class="mt" title="${nf.format(+p.toFixed(1))}% da capacidade"><i style="width:${Math.min(100,p)}%;background:${col(r.svc||r.grp||"")}"></i></span><span class="pc">${nf.format(+p.toFixed(1))}%</span><span>${fmt(v)}</span>${flag}</span></td>`;
   }
   if(c[2]==="equip"){
-    if(rf)return `<td class="ed equip ${cls}" data-ref='${esc(JSON.stringify(rf))}' tabindex="0" title="Clique para informar o encoder">${v?esc(v):'<span class="ph">+ informar</span>'}</td>`;
-    return `<td ${C("equip"+(v?"":" nil"))}>${v?`<span class="eq">${esc(v)}</span>`:"—"}</td>`;
+    const e=v!=null?eqMap()[v]:null;
+    const body=e?`<span class="eq">${esc(e.name)}</span>${e.manufacturer||e.model?`<small class="eqm">${esc([e.manufacturer,e.model].filter(Boolean).join(" · "))}</small>`:""}`:null;
+    if(rf)return `<td class="ed equip ${cls}" data-ref='${esc(JSON.stringify(rf))}' tabindex="0" title="Clique para escolher o equipamento">${body||'<span class="ph">+ escolher</span>'}</td>`;
+    return `<td ${C("equip"+(e?"":" nil"))}>${body||"—"}</td>`;
   }
+  if(c[2]==="act")return `<td ${C("r")}><button type="button" class="btn sm danger" data-del="${v}">Excluir</button></td>`;
+  if(c[2]==="uso")return `<td ${C("")}>${v?`<span class="chip c-acc" title="${esc(r._uses.join(", "))}">${v} ${v>1?"usos":"uso"}</span>`:'<span class="chip c-warn">sem uso</span>'}</td>`;
+  if(["ename","func","txt"].includes(c[2])&&rf)return `<td class="ed tx ${cls}" data-ref='${esc(JSON.stringify(rf))}' tabindex="0" title="Clique para editar">${v?esc(v):'<span class="ph">+ informar</span>'}</td>`;
+  if(c[2]==="ename")return `<td ${C("")}><b>${esc(v)}</b></td>`;
+  if(c[2]==="func")return `<td ${C(v?"":"nil")}>${v?`<span class="chip c-ok">${esc(v)}</span>`:"—"}</td>`;
   if(c[2]==="pid")return rf?`<td${ed}>${v??"—"}</td>`:`<td ${C("num"+(v==null?" nil":""))}>${v??"—"}</td>`;
   if(c[2]==="num")return rf?`<td${ed}>${fmt(v)}</td>`:`<td ${C("num"+(v==null?" nil":""))}>${fmt(v)}</td>`;
   return `<td ${C("")}>${esc(fmt(v))}</td>`;
@@ -299,7 +334,7 @@ function renderTables(){
   const q=($("q")?.value||"").trim().toLowerCase();let shown=0,tot=0;
   $("tables").innerHTML=V.tables.map((t,ti)=>{
     const key=view+ti,s=sorts[key];let rows=t.rows;tot+=rows.length;
-    if(q)rows=rows.filter(r=>Object.entries(r).some(([k,v])=>k!=="_ref"&&v!=null&&String(v).toLowerCase().includes(q)));
+    if(q)rows=rows.filter(r=>Object.entries(r).some(([k,v])=>k!=="_ref"&&k!=="_uses"&&v!=null&&String(v).toLowerCase().includes(q)));
     if(s)rows=[...rows].sort((a,b)=>{const x=a[s.k],y=b[s.k];if(x==null)return 1;if(y==null)return -1;const d=typeof x==="number"?x-y:String(x).localeCompare(String(y),"pt");return s.asc?d:-d});
     shown+=rows.length;
     // início de cada grupo recebe divisória vertical
@@ -318,8 +353,10 @@ function render(keepSearch){
   $("app").innerHTML=`<section class="hero"><span class="eyebrow">${V.eyebrow}</span><h1>${V.title}</h1><p class="lede">${V.lede}</p></section>
     <section class="cards">${V.cards}</section>${V.usage}
     <div class="tools"><input id="q" type="search" placeholder="Buscar serviço, PID ou valor…" aria-label="Buscar">${V.extra||""}<span class="count" id="count"></span></div>
-    ${editing?'<p class="editbar"><span class="chip c-warn">Modo edição</span><span>Clique num valor sublinhado ou em <b>+ informar</b>, digite e aperte Enter. Esc cancela. Deixe vazio para apagar.</span></p>':""}
-    <datalist id="encoders">${[...new Set([...D.bitrates.map(b=>b.encoder),...D.encoder.map(e=>e.equipment)].filter(Boolean))].sort().map(e=>`<option value="${esc(e)}">`).join("")}</datalist><div id="tables"></div><div class="notes">${V.notes.map(([n,f])=>`<p class="${f?"flag":""}">${esc(n)}</p>`).join("")}</div>`;
+    ${editing?'<p class="editbar"><span class="chip c-warn">Modo edição</span><span>Clique num valor sublinhado, em <b>+ informar</b> ou em <b>+ escolher</b>. Enter salva, Esc cancela, vazio apaga.</span></p>':""}
+    ${V.form?equipForm():""}
+    <datalist id="functions">${[...new Set(["Encoder","Multiplexador","Modulador","Transcoder","Receptor IRD","Gerador de tabelas",...D.equipment.map(e=>e.function)].filter(Boolean))].map(e=>`<option value="${esc(e)}">`).join("")}</datalist>
+    <datalist id="makers">${[...new Set(D.equipment.map(e=>e.manufacturer).filter(Boolean))].sort().map(e=>`<option value="${esc(e)}">`).join("")}</datalist><div id="tables"></div><div class="notes">${V.notes.map(([n,f])=>`<p class="${f?"flag":""}">${esc(n)}</p>`).join("")}</div>`;
   $("q").value=q;renderTables();
 }
 
@@ -329,15 +366,17 @@ async function api(path,opts={}){
   const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||"Falha na requisição."),{status:r.status});return j;
 }
 function applyLocal(rf,value){
-  const map={settings:["settings","key"],bitrates:["bitrates","id"],service_pids:["pids","service_id"],encoder_rates:["encoder","id"],isdb_layers:["layers","id"],isdb_pids:["isdbPids","id"]};
+  const map={equipment:["equipment","id"],settings:["settings","key"],bitrates:["bitrates","id"],service_pids:["pids","service_id"],encoder_rates:["encoder","id"],isdb_layers:["layers","id"],isdb_pids:["isdbPids","id"]};
   const [arr,pk]=map[rf.t];const row=D[arr].find(x=>String(x[pk])===String(rf.id));if(row)row[rf.t==="settings"?"value":rf.f]=value;
 }
 function startEdit(el){
-  if(el.querySelector("input"))return;
-  const rf=JSON.parse(el.dataset.ref),isText=rf.kind==="text";
+  if(el.querySelector("input,select"))return;
+  const rf=JSON.parse(el.dataset.ref);
+  if(rf.kind==="equip")return startSelect(el,rf);
+  const isText=rf.kind==="text";
   const old=el.querySelector(".ph")?"—":el.textContent.trim(),oldHtml=el.innerHTML;
   const start=old==="—"?"":isText?old:old.replace(/\./g,"");
-  el.innerHTML=isText?`<input class="cell text" list="encoders" value="${esc(start)}" placeholder="Modelo do equipamento" aria-label="Equipamento">`:`<input class="cell" inputmode="decimal" value="${esc(start)}" aria-label="Novo valor">`;
+  el.innerHTML=isText?`<input class="cell text" ${rf.list?`list="${rf.list}"`:""} value="${esc(start)}" aria-label="Novo valor">`:`<input class="cell" inputmode="decimal" value="${esc(start)}" aria-label="Novo valor">`;
   const inp=el.querySelector("input");inp.focus();inp.select();
   let done=false;
   const finish=async save=>{if(done)return;done=true;
@@ -349,6 +388,41 @@ function startEdit(el){
   inp.addEventListener("keydown",e=>{if(e.key==="Enter")finish(true);if(e.key==="Escape")finish(false)});
   inp.addEventListener("blur",()=>finish(true));
 }
+function eqMap(){return Object.fromEntries(D.equipment.map(e=>[e.id,e]))}
+function eqLabel(id){const e=id!=null&&D.equipment.find(x=>x.id===id);return e?[e.name,e.manufacturer,e.model].filter(Boolean).join(" "):""}
+function startSelect(el,rf){
+  const oldHtml=el.innerHTML,cur=(()=>{const r=D.bitrates.find(b=>rf.t==="bitrates"&&b.id===rf.id)||D.encoder.find(e=>rf.t==="encoder_rates"&&e.id===rf.id);return r?.equipment_id??""})();
+  const opt=e=>`<option value="${e.id}" ${e.id===cur?"selected":""}>${esc([e.name,e.manufacturer,e.model].filter(Boolean).join(" · "))}</option>`;
+  const pref=D.equipment.filter(e=>(e.function||"").toLowerCase().startsWith((rf.prefer||"").toLowerCase().slice(0,5))),rest=D.equipment.filter(e=>!pref.includes(e));
+  el.innerHTML=`<select class="cell text" aria-label="Equipamento"><option value="">— sem equipamento —</option>${pref.length?`<optgroup label="${esc(rf.prefer)}">${pref.map(opt).join("")}</optgroup>`:""}${rest.length?`<optgroup label="${pref.length?"Outros":"Equipamentos"}">${rest.map(opt).join("")}</optgroup>`:""}<option value="__new">+ Cadastrar novo equipamento…</option></select>`;
+  const sel=el.querySelector("select");sel.focus();
+  let done=false;
+  const save=async()=>{if(done)return;done=true;
+    if(sel.value==="__new"){view="equip";location.hash="equip";render();setTimeout(()=>$("eqName")?.focus(),50);return}
+    const val=sel.value===""?null:+sel.value;if(val===(cur===""?null:cur)){el.innerHTML=oldHtml;return}
+    try{const r=await api(`/api/${rf.t}/${rf.id}`,{method:"PATCH",token:getToken(),body:JSON.stringify({field:"equipment_id",value:val,context:rf.ctx})});
+      applyLocal(rf,r.value);toast("Equipamento definido");auditLog=await api("/api/history").catch(()=>auditLog);render(true);
+    }catch(e){el.innerHTML=oldHtml;toast(e.message,true);if(e.status===401){setToken("");setEditing(false)}}};
+  sel.addEventListener("change",save);
+  sel.addEventListener("keydown",e=>{if(e.key==="Escape"){done=true;el.innerHTML=oldHtml}});
+  sel.addEventListener("blur",()=>{if(!done){done=true;el.innerHTML=oldHtml}});
+}
+function equipForm(){
+  if(!editing)return `<p class="editbar"><span class="chip c-acc">Cadastro</span><span>Para cadastrar ou alterar equipamentos, clique em <b>Editar valores</b> no topo.</span></p>`;
+  return `<form class="eqform" id="eqForm" autocomplete="off">
+    <h2>Cadastrar equipamento</h2>
+    <div class="eqgrid">
+      <label>Nome *<input id="eqName" name="name" required placeholder="Ex.: Encoder 01 HD"></label>
+      <label>Fabricante<input id="eqMaker" name="manufacturer" list="makers" placeholder="Ex.: Ateme"></label>
+      <label>Modelo<input id="eqModel" name="model" placeholder="Ex.: Titan Live"></label>
+      <label>Função<input id="eqFunc" name="function" list="functions" placeholder="Encoder, Multiplexador…"></label>
+      <label>Local<input id="eqLoc" name="location" placeholder="Ex.: Rack 3 · Sala técnica"></label>
+      <label>Nº de série<input id="eqSerial" name="serial"></label>
+      <label class="wide">Observação<input id="eqNotes" name="notes"></label>
+    </div>
+    <div class="eqactions"><button class="btn primary" type="submit">Cadastrar</button><span class="msg" id="eqMsg"></span></div>
+  </form>`;
+}
 function setEditing(on){editing=on;$("editBtn").classList.toggle("on",on);$("editBtn").textContent=on?"Sair da edição":"Editar valores";render(true)}
 
 /* ===== Eventos ===== */
@@ -356,8 +430,18 @@ $("tabs").addEventListener("click",async e=>{const b=e.target.closest(".tab");if
 $("app").addEventListener("click",e=>{
   const m=e.target.closest("[data-m]");if(m){taxMode=m.dataset.m;render(true);return}
   const th=e.target.closest("th button");if(th){const key=view+th.dataset.t,s=sorts[key];sorts[key]={k:th.dataset.k,asc:s&&s.k===th.dataset.k?!s.asc:true};renderTables();return}
+  const del=e.target.closest("[data-del]");if(del){
+    if(del.dataset.armed!=="1"){del.dataset.armed="1";del.textContent="Confirmar exclusão";setTimeout(()=>{if(del.isConnected){del.dataset.armed="";del.textContent="Excluir"}},4000);return}
+    api(`/api/equipment/${del.dataset.del}`,{method:"DELETE",token:getToken()}).then(()=>{const id=+del.dataset.del;D.equipment=D.equipment.filter(x=>x.id!==id);
+      for(const b of D.bitrates)if(b.equipment_id===id)b.equipment_id=null;for(const x of D.encoder)if(x.equipment_id===id)x.equipment_id=null;toast("Equipamento excluído");render(true)})
+      .catch(err=>{toast(err.message,true);if(err.status===401){setToken("");setEditing(false)}});return}
   const ed=e.target.closest("td.ed,.edv");if(ed)startEdit(ed);
 });
+$("app").addEventListener("submit",async e=>{if(e.target.id!=="eqForm")return;e.preventDefault();
+  const f=e.target,body=Object.fromEntries(new FormData(f).entries());$("eqMsg").textContent="";
+  try{const eq=await api("/api/equipment",{method:"POST",token:getToken(),body:JSON.stringify(body)});D.equipment.push(eq);D.equipment.sort((a,b)=>a.name.localeCompare(b.name,"pt"));
+    toast(`${eq.name} cadastrado`);render(true);$("eqName")?.focus()}
+  catch(err){$("eqMsg").textContent=err.message;if(err.status===401){setToken("");setEditing(false)}}});
 $("app").addEventListener("keydown",e=>{const ed=e.target.closest&&e.target.closest("td.ed");if(ed&&e.key==="Enter"&&e.target===ed){e.preventDefault();startEdit(ed)}});
 $("app").addEventListener("input",e=>{if(e.target.id==="q")renderTables()});
 $("editBtn").addEventListener("click",async()=>{
@@ -374,7 +458,7 @@ $("themeBtn").addEventListener("click",()=>{const r=document.documentElement;con
 
 (async()=>{
   try{D=await api("/api/data");canEdit=D.editable;$("editBtn").hidden=!canEdit;
-    const h=location.hash.slice(1);if(["pids","dvb","old","taxas","isdb","hist"].includes(h))view=h;
+    const h=location.hash.slice(1);if(["pids","dvb","old","taxas","isdb","equip","hist"].includes(h))view=h;
     if(view==="hist")auditLog=await api("/api/history").catch(()=>[]);
     render();
   }catch(e){$("app").innerHTML=`<p class="state">Não foi possível carregar os dados do banco. ${esc(e.message)}</p>`}

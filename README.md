@@ -9,6 +9,7 @@ Sistema web do estudo **BTS Compress (03/08/2026)**: serviços, PIDs e bitrates 
 - **DVB antigo**: configuração antiga comparada com a atual.
 - **Taxas encoder / mux**: áudio, vídeo e closed caption de cada serviço.
 - **ISDB-T**: serviços por layer e taxa medida de cada PID.
+- **Equipamentos**: cadastro de encoders, multiplexadores e outros (nome, fabricante, modelo, função, local, nº de série). O equipamento de cada serviço é escolhido nas abas DVB atual e Taxas.
 - **Histórico**: toda alteração feita pelo sistema fica registrada (valor anterior, novo e horário).
 
 Os totais, sobras e percentuais são recalculados a partir do banco a cada edição.
@@ -65,5 +66,6 @@ Para recarregar os dados originais, apague as tabelas e reinicie o serviço.
 | `encoder_rates` | Taxas de encoder e mux                                      |
 | `isdb_layers`   | Serviços ISDB-T por layer                                   |
 | `isdb_pids`     | PIDs ISDB-T e taxa medida                                   |
+| `equipment`     | Cadastro de equipamentos                                    |
 | `settings`      | Capacidades (banda DVB, layer B)                            |
 | `audit_log`     | Histórico de alterações                                     |

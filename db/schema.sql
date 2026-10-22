@@ -79,3 +79,33 @@ ALTER TABLE bitrates ADD COLUMN IF NOT EXISTS encoder TEXT;
 
 -- Equipamento usado em cada linha de taxas (encoder ou mux)
 ALTER TABLE encoder_rates ADD COLUMN IF NOT EXISTS equipment TEXT;
+
+-- Cadastro de equipamentos (encoders, multiplexadores, moduladores...)
+CREATE TABLE IF NOT EXISTS equipment (
+  id            SERIAL PRIMARY KEY,
+  name          TEXT NOT NULL,
+  manufacturer  TEXT,
+  model         TEXT,
+  function      TEXT,
+  location      TEXT,
+  serial        TEXT,
+  notes         TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE bitrates      ADD COLUMN IF NOT EXISTS equipment_id INTEGER REFERENCES equipment(id) ON DELETE SET NULL;
+ALTER TABLE encoder_rates ADD COLUMN IF NOT EXISTS equipment_id INTEGER REFERENCES equipment(id) ON DELETE SET NULL;
+
+-- Converte os nomes digitados antes do cadastro em equipamentos e vincula
+INSERT INTO equipment (name, function)
+SELECT DISTINCT t.name, t.fn FROM (
+  SELECT encoder AS name, 'Encoder' AS fn FROM bitrates WHERE encoder IS NOT NULL AND equipment_id IS NULL
+  UNION
+  SELECT equipment, CASE source WHEN 'mux' THEN 'Multiplexador' ELSE 'Encoder' END FROM encoder_rates WHERE equipment IS NOT NULL AND equipment_id IS NULL
+) t
+WHERE NOT EXISTS (SELECT 1 FROM equipment e WHERE e.name = t.name);
+
+UPDATE bitrates b SET equipment_id = (SELECT min(id) FROM equipment e WHERE e.name = b.encoder), encoder = NULL
+WHERE b.encoder IS NOT NULL AND b.equipment_id IS NULL;
+UPDATE encoder_rates r SET equipment_id = (SELECT min(id) FROM equipment e WHERE e.name = r.equipment), equipment = NULL
+WHERE r.equipment IS NOT NULL AND r.equipment_id IS NULL;

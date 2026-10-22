@@ -20,9 +20,10 @@ const pool = new pg.Pool({
 // Campos que podem ser editados pelo sistema: tabela -> { chave primária, colunas, tipo }
 const EDITABLE = {
   settings:      { pk: 'key',        cols: ['value'], type: 'number' },
-  bitrates:      { pk: 'id',         cols: ['mbps'],  type: 'number', text: ['note', 'encoder'] },
+  bitrates:      { pk: 'id',         cols: ['mbps'],  type: 'number', text: ['note', 'encoder'], extra: { equipment_id: 'ref' } },
   service_pids:  { pk: 'service_id', cols: ['v', 'a1', 'a2', 'a3', 'a4', 'pcr', 'pmt', 'dem', 'ait', 'cc', 'ect', 'data'], type: 'int' },
-  encoder_rates: { pk: 'id',         cols: ['a1', 'a2', 'a3', 'a4', 'v', 'cc'], type: 'number', text: ['equipment'] },
+  encoder_rates: { pk: 'id',         cols: ['a1', 'a2', 'a3', 'a4', 'v', 'cc'], type: 'number', text: ['equipment'], extra: { equipment_id: 'ref' } },
+  equipment:     { pk: 'id',         cols: [], type: 'text', text: ['name', 'manufacturer', 'model', 'function', 'location', 'serial', 'notes'] },
   isdb_layers:   { pk: 'id',         cols: ['mbps'],  type: 'number' },
   isdb_pids:     { pk: 'id',         cols: ['pid'],   type: 'int', extra: { mbps: 'number' } },
 };
@@ -68,7 +69,7 @@ app.get('/api/health', async (_req, res) => {
 app.get('/api/data', async (_req, res, next) => {
   try {
     const q = sql => pool.query(sql).then(r => r.rows);
-    const [settings, services, pids, bitrates, encoder, layers, isdbPids] = await Promise.all([
+    const [settings, services, pids, bitrates, encoder, layers, isdbPids, equipment] = await Promise.all([
       q('SELECT key,label,value FROM settings ORDER BY key'),
       q('SELECT * FROM services ORDER BY sort'),
       q('SELECT p.* FROM service_pids p JOIN services s ON s.id=p.service_id ORDER BY s.sort'),
@@ -76,8 +77,9 @@ app.get('/api/data', async (_req, res, next) => {
       q('SELECT e.* FROM encoder_rates e JOIN services s ON s.id=e.service_id ORDER BY s.sort'),
       q('SELECT * FROM isdb_layers ORDER BY sort'),
       q('SELECT * FROM isdb_pids ORDER BY sort'),
+      q('SELECT * FROM equipment ORDER BY lower(name), id'),
     ]);
-    res.json({ settings, services, pids, bitrates, encoder, layers, isdbPids, editable: Boolean(ADMIN_TOKEN) });
+    res.json({ settings, services, pids, bitrates, encoder, layers, isdbPids, equipment, editable: Boolean(ADMIN_TOKEN) });
   } catch (e) { next(e); }
 });
 
@@ -89,6 +91,35 @@ app.get('/api/history', async (_req, res, next) => {
 });
 
 app.post('/api/auth/check', requireAdmin, (_req, res) => res.json({ ok: true }));
+
+const EQUIP_FIELDS = ['name', 'manufacturer', 'model', 'function', 'location', 'serial', 'notes'];
+const clean = v => (v == null ? null : String(v).trim().slice(0, 500) || null);
+const equipLabel = e => [e.name, e.model].filter(Boolean).join(' · ');
+
+// Cadastra equipamento: POST /api/equipment { name, manufacturer, model, function, location, serial, notes }
+app.post('/api/equipment', requireAdmin, async (req, res, next) => {
+  const b = req.body || {};
+  const vals = EQUIP_FIELDS.map(f => clean(b[f]));
+  if (!vals[0]) return res.status(400).json({ error: 'O nome do equipamento é obrigatório.' });
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO equipment (${EQUIP_FIELDS.join(',')}) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, vals);
+    await pool.query('INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context) VALUES ($1,$2,$3,$4,$5,$6)',
+      ['equipment', String(rows[0].id), 'cadastro', null, equipLabel(rows[0]), 'Equipamento cadastrado']);
+    res.status(201).json(rows[0]);
+  } catch (e) { next(e); }
+});
+
+// Exclui equipamento; os serviços que o usavam ficam sem equipamento
+app.delete('/api/equipment/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const { rows } = await pool.query('DELETE FROM equipment WHERE id=$1 RETURNING *', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Equipamento não encontrado.' });
+    await pool.query('INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context) VALUES ($1,$2,$3,$4,$5,$6)',
+      ['equipment', String(rows[0].id), 'exclusão', equipLabel(rows[0]), null, 'Equipamento excluído']);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
 
 // Edita um campo: PATCH /api/bitrates/12  { "field": "mbps", "value": 4.5, "context": "FEED · titular" }
 app.patch('/api/:table/:id', requireAdmin, async (req, res, next) => {
@@ -109,9 +140,12 @@ app.patch('/api/:table/:id', requireAdmin, async (req, res, next) => {
     if (!Number.isFinite(n) || n < 0) return res.status(400).json({ error: 'Use um número maior ou igual a zero.' });
     if (type === 'int' && !Number.isInteger(n)) return res.status(400).json({ error: 'PID precisa ser um número inteiro.' });
     if (type === 'int' && n > 8191) return res.status(400).json({ error: 'PID vai de 0 a 8191.' });
+    if (type === 'ref' && !Number.isInteger(n)) return res.status(400).json({ error: 'Equipamento inválido.' });
     value = n;
   }
   if (type === 'text' && value !== null) value = String(value).trim().slice(0, 500) || null;
+  if (req.params.table === 'equipment' && field === 'name' && value === null)
+    return res.status(400).json({ error: 'O nome do equipamento é obrigatório.' });
 
   const t = req.params.table;
   const client = await pool.connect();
@@ -120,13 +154,20 @@ app.patch('/api/:table/:id', requireAdmin, async (req, res, next) => {
     const cur = await client.query(`SELECT ${field} AS v FROM ${t} WHERE ${spec.pk}=$1 FOR UPDATE`, [req.params.id]);
     if (!cur.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Registro não encontrado.' }); }
     await client.query(`UPDATE ${t} SET ${field}=$1 WHERE ${spec.pk}=$2`, [value, req.params.id]);
+    let oldTxt = cur.rows[0].v == null ? null : String(cur.rows[0].v), newTxt = value == null ? null : String(value);
+    if (field === 'equipment_id') { // no histórico, mostra o nome do equipamento em vez do número
+      const names = await client.query('SELECT id,name,model FROM equipment WHERE id = ANY($1::int[])', [[cur.rows[0].v, value].filter(v => v != null)]);
+      const lbl = id => { const e = names.rows.find(r => r.id === id); return e ? equipLabel(e) : null; };
+      oldTxt = lbl(cur.rows[0].v); newTxt = lbl(value);
+    }
     await client.query('INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context) VALUES ($1,$2,$3,$4,$5,$6)',
-      [t, String(req.params.id), field, cur.rows[0].v == null ? null : String(cur.rows[0].v), value == null ? null : String(value), context ? String(context).slice(0, 200) : null]);
+      [t, String(req.params.id), field === 'equipment_id' ? 'equipamento' : field, oldTxt, newTxt, context ? String(context).slice(0, 200) : null]);
     await client.query('COMMIT');
     res.json({ ok: true, value });
   } catch (e) {
     await client.query('ROLLBACK').catch(() => {});
     if (e.code === '23505') return res.status(409).json({ error: 'Esse valor já está em uso.' });
+    if (e.code === '23503') return res.status(400).json({ error: 'Esse equipamento não existe mais. Atualize a página.' });
     next(e);
   } finally {
     client.release();
