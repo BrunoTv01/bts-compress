@@ -22,7 +22,7 @@ const EDITABLE = {
   settings:      { pk: 'key',        cols: ['value'], type: 'number' },
   bitrates:      { pk: 'id',         cols: ['mbps'],  type: 'number', text: ['note', 'encoder'] },
   service_pids:  { pk: 'service_id', cols: ['v', 'a1', 'a2', 'a3', 'a4', 'pcr', 'pmt', 'dem', 'ait', 'cc', 'ect', 'data'], type: 'int' },
-  encoder_rates: { pk: 'id',         cols: ['a1', 'a2', 'a3', 'a4', 'v', 'cc'], type: 'number' },
+  encoder_rates: { pk: 'id',         cols: ['a1', 'a2', 'a3', 'a4', 'v', 'cc'], type: 'number', text: ['equipment'] },
   isdb_layers:   { pk: 'id',         cols: ['mbps'],  type: 'number' },
   isdb_pids:     { pk: 'id',         cols: ['pid'],   type: 'int', extra: { mbps: 'number' } },
 };

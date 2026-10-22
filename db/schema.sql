@@ -76,3 +76,6 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 -- Equipamento (encoder) usado por serviço em cada configuração
 ALTER TABLE bitrates ADD COLUMN IF NOT EXISTS encoder TEXT;
+
+-- Equipamento usado em cada linha de taxas (encoder ou mux)
+ALTER TABLE encoder_rates ADD COLUMN IF NOT EXISTS equipment TEXT;
