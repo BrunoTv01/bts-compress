@@ -14,19 +14,21 @@
   --display:"Chakra Petch",system-ui,sans-serif;
   --body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --head:#f7f9fa; --zebra:#fafbfc; --hover:#eef6f5;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0d1419; --surface:#141d24; --line:#26333d; --fg:#e4eaef; --muted:#8c9aa6;
   --accent:#3fc1b8; --accent-soft:#16312f; --signal:#fb923c;
-  --ok:#4ade80; --ok-bg:#12301d; --warn:#fbbf24; --warn-bg:#33270c; --bad:#f87171; --bad-bg:#3a1414; color-scheme:dark}}
+  --ok:#4ade80; --ok-bg:#12301d; --warn:#fbbf24; --warn-bg:#33270c; --bad:#f87171; --bad-bg:#3a1414; --head:#18232b; --zebra:#121a20; --hover:#17302f; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0d1419; --surface:#141d24; --line:#26333d; --fg:#e4eaef; --muted:#8c9aa6;
   --accent:#3fc1b8; --accent-soft:#16312f; --signal:#fb923c;
-  --ok:#4ade80; --ok-bg:#12301d; --warn:#fbbf24; --warn-bg:#33270c; --bad:#f87171; --bad-bg:#3a1414; color-scheme:dark}
+  --ok:#4ade80; --ok-bg:#12301d; --warn:#fbbf24; --warn-bg:#33270c; --bad:#f87171; --bad-bg:#3a1414; --head:#18232b; --zebra:#121a20; --hover:#17302f; color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
-.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1440px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
 .bar{display:flex;align-items:center;gap:12px 24px;padding-block:12px;flex-wrap:wrap}
 .logo{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.02em;display:flex;align-items:center;gap:8px;color:var(--fg);text-decoration:none}
@@ -52,7 +54,7 @@ header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1
 h1{font-family:var(--display);font-weight:600;font-size:clamp(26px,4vw,38px);line-height:1.15;margin:0;text-wrap:balance}
 .lede{color:var(--muted);margin:0;max-width:70ch}
 
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding-block:16px 8px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding-block:16px 8px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:grid;gap:4px}
 .card .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .card .v{font-family:var(--display);font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -76,18 +78,37 @@ h1{font-family:var(--display);font-weight:600;font-size:clamp(26px,4vw,38px);lin
 .seg button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .count{margin-left:auto;font-family:var(--mono);font-size:13px;color:var(--muted)}
 
-.tablebox{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow-x:auto;margin-bottom:12px}
-table{width:100%;border-collapse:collapse;font-size:14px}
-th{background:var(--surface);text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);padding:0;white-space:nowrap}
+/* Tabelas: cabeçalho e 1ª coluna fixos, coluna de taxa fixa à direita, zebra e barras de participação */
+.tablebox{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:72vh;margin-bottom:12px;position:relative}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+th{position:sticky;top:0;z-index:2;background:var(--head);text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);padding:0;white-space:nowrap}
+table.grouped thead tr.cols th{top:31px}
+tr.groups th{height:31px;padding:6px 12px;font-size:10.5px;letter-spacing:.1em;color:var(--fg);border-bottom:1px solid var(--line);border-left:1px solid var(--line);text-align:center;background:var(--head)}
+tr.groups th:first-child{border-left:0;text-align:left}
+th.gs,td.gs{border-left:1px solid var(--line)}
 th.r,td.r{text-align:right}
 th button{all:unset;display:block;padding:10px 12px;cursor:pointer;box-sizing:border-box;width:100%}
+th.r button{text-align:right}
 th button:hover{color:var(--fg)}
-td{padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+th button .arw{color:var(--accent)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface)}
+tbody tr:nth-child(even) td{background:var(--zebra)}
+tbody tr:hover td{background:var(--hover)}
 tbody tr:last-child td{border-bottom:0}
-tbody tr:hover{background:var(--bg)}
-tfoot td{font-weight:600;border-top:1px solid var(--line);border-bottom:0;background:var(--bg)}
+tfoot td{position:sticky;bottom:0;z-index:2;font-weight:600;border-top:1px solid var(--line);border-bottom:0;background:var(--head)}
+th:first-child,td:first-child{position:sticky;left:0;z-index:1;box-shadow:inset -1px 0 0 var(--line)}
+th:first-child,tfoot td:first-child{z-index:3}
+th.stick-r,td.stick-r{position:sticky;right:0;z-index:1;box-shadow:inset 1px 0 0 var(--line)}
+th.stick-r,tfoot td.stick-r{z-index:3}
 td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
-td.nil{color:var(--muted);opacity:.5}
+td.nil{color:var(--line)}
+.svc small{display:block;font-family:var(--mono);font-size:11px;font-weight:400;color:var(--muted);line-height:1.2}
+.brv{display:inline-flex;align-items:center;gap:10px;justify-content:flex-end}
+.mt{display:inline-block;width:64px;height:6px;border-radius:3px;background:var(--bg);overflow:hidden;flex:0 0 auto}
+.mt i{display:block;height:100%;border-radius:3px}
+.pc{font-size:11px;color:var(--muted);min-width:3.6em;text-align:right}
+.dl{display:inline-block;font-family:var(--mono);font-size:12.5px;padding:1px 8px;border-radius:999px}
+.dl.up{background:var(--bad-bg);color:var(--bad)} .dl.down{background:var(--ok-bg);color:var(--ok)} .dl.eq{color:var(--muted)}
 td.ed{cursor:pointer;box-shadow:inset 0 -2px 0 var(--warn-bg)}
 td.ed:hover{background:var(--warn-bg)}
 td.saved{animation:flash 1.2s ease-out}
@@ -204,32 +225,32 @@ function views(B){
     lede:"Mapa de PIDs decimais por serviço (vídeo, áudios, PCR, PMT, closed caption, dados) e bitrate titular de cada um.",
     cards:card("Disponível",nf.format(AV),"Mbps","Banda total do mux")+card("Utilizado",nf.format(usedPids),"Mbps",`${pct(usedPids,AV)}% do mux`)+freeCard("Nulo",AV-usedPids,"good")+card("Serviços",new Set(B.pidsRows.map(r=>r.svc)).size,""),
     usage:usageBar("Ocupação do mux DVB (titular)",B.pidsRows.map(r=>({n:r.svc,v:r.br})),AV),
-    tables:[{rows:B.pidsRows,foot:true,cols:[["ID","id","num"],["Serviço","svc","svc"],["Codificação","cod","txt"],["Vídeo","v","num"],["Áudio 1","a1","num"],["Áudio 2","a2","num"],["Áudio 3","a3","num"],["Áudio 4","a4","num"],["PCR","pcr","num"],["PMT","pmt","num"],["DEM CC","dem","num"],["AIT","ait","num"],["CC","cc","num"],["ECT","ect","num"],["Data","data","num"],["Bitrate","br","br"]]}],
+    tables:[{rows:B.pidsRows,foot:true,groups:[["Identificação",2],["Vídeo e áudio",5],["Sincronismo",2],["Dados e interatividade",5],["Taxa",1]],cols:[["Serviço","svc","svcid"],["Codificação","cod","txt"],["Vídeo","v","pid"],["Áudio 1","a1","pid"],["Áudio 2","a2","pid"],["Áudio 3","a3","pid"],["Áudio 4","a4","pid"],["PCR","pcr","pid"],["PMT","pmt","pid"],["DEM CC","dem","pid"],["AIT","ait","pid"],["CC","cc","pid"],["ECT","ect","pid"],["Data","data","pid"],["Bitrate (Mbps)","br","br",{bar:AV,stickR:1}]]}],
     notes:[["PIDs não usados (“XXXX” na planilha) aparecem como “—”."],...flags.map(f=>[`${f.svc}: ${f.note}`,1]),...dupIds.map(([id,v])=>[`ID de serviço ${id} repetido em: ${v.join(", ")}.`,1])]},
    dvb:{tab:"DVB atual",eyebrow:"DVB · Atualizado 20/07/2026",title:"Bitrates atuais: titular x reserva",
     lede:"Comparação das taxas configuradas no sistema titular e no sistema reserva, serviço a serviço.",
     cards:card("Disponível",nf.format(AV),"Mbps")+card("Usado titular",nf.format(usedT),"Mbps",`Sobra ${nf.format(r3(AV-usedT))} Mbps`,AV-usedT<0?"bad":"")+card("Usado reserva",nf.format(usedR),"Mbps",`Sobra ${nf.format(r3(AV-usedR))} Mbps`,AV-usedR<0?"bad":"")+card("Serviços",B.nowRows.length,"","em cada sistema"),
     usage:usageBar("Titular",B.nowRows.map(r=>({n:r.svc,v:r.tit})),AV)+usageBar("Reserva",B.nowRows.map(r=>({n:r.svc,v:r.res})),AV),
-    tables:[{rows:B.nowRows,foot:true,cols:[["ID","id","num"],["Serviço","svc","svc"],["Titular","tit","br"],["Reserva","res","br"],["Diferença (R − T)","d","delta"]]}],
+    tables:[{rows:B.nowRows,foot:true,cols:[["Serviço","svc","svcid"],["Titular (Mbps)","tit","br",{bar:AV}],["Reserva (Mbps)","res","br",{bar:AV}],["Diferença (R − T)","d","delta"]]}],
     notes:[["Diferença em vermelho: reserva usa mais banda que o titular. Em verde: usa menos."]]},
    old:{tab:"DVB antigo",eyebrow:"DVB · Configuração antiga",title:"Bitrates antigos x atuais",
     lede:"Taxas da configuração antiga do DVB comparadas com as atuais do titular.",
     cards:card("Disponível",nf.format(AV),"Mbps")+card("Utilizado",nf.format(usedO),"Mbps")+freeCard("Sobra",AV-usedO,"good")+card("Serviços",B.oldRows.length,""),
     usage:usageBar("Ocupação antiga do mux",B.oldRows.map(r=>({n:r.svc,v:r.br})),AV),
-    tables:[{rows:B.oldRows,foot:true,cols:[["ID","id","num"],["Serviço","svc","svc"],["Antigo","br","br"],["Atual (titular)","now","br"],["Variação","d","delta"]]}],
+    tables:[{rows:B.oldRows,foot:true,cols:[["Serviço","svc","svcid"],["Antigo (Mbps)","br","br",{bar:AV}],["Atual titular (Mbps)","now","br",{bar:AV}],["Variação","d","delta"]]}],
     notes:[["O ID 1 aparece como CULT BRASIL na configuração antiga e como RÁDIO AM na atual."]]},
    taxas:{tab:"Taxas encoder / mux",eyebrow:"BTS Compress · encoders",title:"Taxas dos encoders e do mux",
     lede:"Áudio e closed caption em kbps, vídeo em Mbps. Alterne entre a taxa configurada no encoder e a medida no mux.",
     cards:card("Vídeo total",nf.format(sumBy(B.taxRows,"v")),"Mbps",taxMode==="enc"?"Encoders":"Mux")+card("Áudio total",nf.format(["a1","a2","a3","a4"].reduce((s,k)=>s+sumBy(B.taxRows,k),0)),"kbps")+card("Serviços",B.taxRows.length,"")+card("ISDB-T",B.taxRows.filter(r=>r.isdb==="ISDB-T").length,"","serviços"),
     usage:"",extra:`<span class="seg" role="group" aria-label="Origem"><button type="button" data-m="enc" class="${taxMode==="enc"?"on":""}">Encoder</button><button type="button" data-m="mux" class="${taxMode==="mux"?"on":""}">Mux</button></span>`,
-    tables:[{rows:B.taxRows,cols:[["Serviço","svc","svc"],["Sistema","isdb","sys"],["Áudio 1","a1","num"],["Áudio 2","a2","num"],["Áudio 3","a3","num"],["Áudio 4 (Atmos)","a4","num"],["Vídeo (Mbps)","v","num"],["CC (kbps)","cc","num"]]}],
+    tables:[{rows:B.taxRows,groups:[["Identificação",2],["Áudio (kbps)",4],["Vídeo",1],["Legenda",1]],cols:[["Serviço","svc","svc"],["Sistema","isdb","sys"],["Áudio 1","a1","num"],["Áudio 2","a2","num"],["Áudio 3","a3","num"],["Áudio 4 · Atmos","a4","num"],["Mbps","v","num"],["CC kbps","cc","num"]]}],
     notes:[["EPG e interatividade estão sem valor nas duas tabelas da planilha."]]},
    isdb:{tab:"ISDB-T",eyebrow:"ISDB-T · Cinco canais",title:"ISDB-T: layers e PIDs",
     lede:"Sistema atual com as alterações de taxas, modulação e FEC: distribuição por layer e taxa medida de cada PID.",
     cards:card("Total layer B",nf.format(LBT),"Mbps")+card("Serviços layer B",nf.format(usedLB),"Mbps",`${pct(usedLB,LBT)}% da layer`)+card("Usado (planilha)",nf.format(LBR),"Mbps",`Sobra ${nf.format(r3(LBT-LBR))} Mbps`,LBT-LBR<1?"warn":"")+card("Layer A (1seg)",nf.format(sumBy(B.layerRows.filter(r=>r.layer==="A"),"br")),"Mbps"),
     usage:usageBar("Layer B",lb.map(r=>({n:r.svc,v:r.br})),LBT),
-    tables:[{h:"Serviços por layer",rows:B.layerRows,foot:true,cols:[["Layer","layer","layer"],["Serviço (proposto)","svc","svc"],["Bitrate total","br","br"]]},
-            {h:"PIDs e taxas medidas",rows:B.isdbPidRows,foot:true,cols:[["Grupo","grp","svc"],["PID","pid","num"],["Identificação","ident","txt"],["Bitrate","br","br"]]}],
+    tables:[{h:"Serviços por layer",rows:B.layerRows,foot:true,cols:[["Serviço (proposto)","svc","svc"],["Layer","layer","layer"],["Bitrate (Mbps)","br","br",{bar:LBT}]]},
+            {h:"PIDs e taxas medidas",rows:B.isdbPidRows,foot:true,cols:[["Grupo","grp","svc"],["PID","pid","pid"],["Identificação","ident","txt"],["Bitrate (Mbps)","br","br",{bar:LBT}]]}],
     notes:[["“Usado (planilha)” é o valor informado na planilha e inclui tabelas e overhead; a soma dos serviços da layer B pode ser menor."]]},
    hist:{tab:"Histórico",eyebrow:"Sistema · auditoria",title:"Histórico de alterações",
     lede:"Cada valor editado no sistema fica registrado aqui, com o valor anterior e o novo.",
@@ -243,16 +264,26 @@ function views(B){
 
 /* ===== Render ===== */
 let V=null;
-function cell(c,r){
-  const v=r[c[1]],rf=editing&&r._ref&&r._ref[c[1]];
-  const ed=rf?` class="ed ${["num","br"].includes(c[2])?"num":""} ${c[2]==="br"?"r":""}" data-ref='${esc(JSON.stringify(rf))}' tabindex="0" title="Clique para editar"`:"";
-  if(c[2]==="svc")return `<td>${svcCell(v)}</td>`;
-  if(c[2]==="delta")return `<td class="num r">${delta(v)}</td>`;
-  if(c[2]==="sys")return `<td><span class="chip ${v==="ISDB-T"?"c-acc":"c-ok"}">${v}</span></td>`;
-  if(c[2]==="layer")return `<td><span class="chip ${v==="B"?"c-acc":v==="A"?"c-ok":"c-warn"}">${v==="Tabelas"?v:"Layer "+v}</span></td>`;
-  if(c[2]==="br")return rf?`<td${ed}>${fmt(v)}</td>`:`<td class="num r">${fmt(v)}${r.note?' <span class="chip c-warn" title="'+esc(r.note)+'">!</span>':""}</td>`;
-  if(c[2]==="num")return rf?`<td${ed}>${fmt(v)}</td>`:`<td class="num${v==null?" nil":""}">${fmt(v)}</td>`;
-  return `<td>${esc(fmt(v))}</td>`;
+function cell(c,r,gs){
+  const v=r[c[1]],o=c[3]||{},rf=editing&&r._ref&&r._ref[c[1]];
+  const cls=[gs?"gs":"",o.stickR?"stick-r":""].join(" ").trim();
+  const ed=rf?` class="ed ${["num","br","pid"].includes(c[2])?"num":""} ${c[2]==="br"?"r":""} ${cls}" data-ref='${esc(JSON.stringify(rf))}' tabindex="0" title="Clique para editar"`:"";
+  const C=x=>`class="${x} ${cls}"`;
+  if(c[2]==="svc")return `<td ${C("")}>${svcCell(v)}</td>`;
+  if(c[2]==="svcid")return `<td ${C("")}><span class="svc"><span class="dot" style="background:${col(v)}"></span><span>${esc(v)}${r.id!=null?`<small>ID ${r.id}</small>`:""}</span></span></td>`;
+  if(c[2]==="delta")return `<td ${C("num r")}>${v==null?"—":`<span class="dl ${v>0?"up":v<0?"down":"eq"}">${v>0?"▲ +":v<0?"▼ ":""}${nf.format(v)}</span>`}</td>`;
+  if(c[2]==="sys")return `<td ${C("")}><span class="chip ${v==="ISDB-T"?"c-acc":"c-ok"}">${v}</span></td>`;
+  if(c[2]==="layer")return `<td ${C("")}><span class="chip ${v==="B"?"c-acc":v==="A"?"c-ok":"c-warn"}">${v==="Tabelas"?v:"Layer "+v}</span></td>`;
+  if(c[2]==="br"){
+    if(rf)return `<td${ed}>${fmt(v)}</td>`;
+    const flag=r.note?' <span class="chip c-warn" title="'+esc(r.note)+'">!</span>':"";
+    if(!o.bar||v==null)return `<td ${C("num r")}>${fmt(v)}${flag}</td>`;
+    const p=v/o.bar*100;
+    return `<td ${C("num r")}><span class="brv"><span class="mt" title="${nf.format(+p.toFixed(1))}% da capacidade"><i style="width:${Math.min(100,p)}%;background:${col(r.svc||r.grp||"")}"></i></span><span class="pc">${nf.format(+p.toFixed(1))}%</span><span>${fmt(v)}</span>${flag}</span></td>`;
+  }
+  if(c[2]==="pid")return rf?`<td${ed}>${v??"—"}</td>`:`<td ${C("num"+(v==null?" nil":""))}>${v??"—"}</td>`;
+  if(c[2]==="num")return rf?`<td${ed}>${fmt(v)}</td>`:`<td ${C("num"+(v==null?" nil":""))}>${fmt(v)}</td>`;
+  return `<td ${C("")}>${esc(fmt(v))}</td>`;
 }
 function renderTables(){
   const q=($("q")?.value||"").trim().toLowerCase();let shown=0,tot=0;
@@ -261,9 +292,12 @@ function renderTables(){
     if(q)rows=rows.filter(r=>Object.entries(r).some(([k,v])=>k!=="_ref"&&v!=null&&String(v).toLowerCase().includes(q)));
     if(s)rows=[...rows].sort((a,b)=>{const x=a[s.k],y=b[s.k];if(x==null)return 1;if(y==null)return -1;const d=typeof x==="number"?x-y:String(x).localeCompare(String(y),"pt");return s.asc?d:-d});
     shown+=rows.length;
-    const foot=t.foot&&rows.length?`<tfoot><tr>${t.cols.map((c,i)=>c[2]==="br"?`<td class="num r">${nf.format(sumBy(rows,c[1]))}</td>`:i===0?"<td>Total</td>":"<td></td>").join("")}</tr></tfoot>`:"";
-    return `${t.h?`<h2>${t.h}</h2>`:""}<div class="tablebox"><table><thead><tr>${t.cols.map(c=>`<th class="${["br","delta"].includes(c[2])?"r":""}"><button data-t="${ti}" data-k="${c[1]}">${c[0]}${s&&s.k===c[1]?(s.asc?" ▲":" ▼"):""}</button></th>`).join("")}</tr></thead>
-    <tbody>${rows.length?rows.map(r=>`<tr>${t.cols.map(c=>cell(c,r)).join("")}</tr>`).join(""):`<tr><td colspan="${t.cols.length}" class="empty">${q?"Nada encontrado para essa busca.":"Nenhum registro ainda."}</td></tr>`}</tbody>${foot}</table></div>`;
+    // início de cada grupo recebe divisória vertical
+    const starts=new Set();if(t.groups){let i=0;for(const [,n] of t.groups){if(i>0)starts.add(i);i+=n}}
+    const groups=t.groups?`<tr class="groups">${t.groups.map(([g,n],i)=>`<th colspan="${n}" class="${i===t.groups.length-1&&t.cols.at(-1)[3]?.stickR?"stick-r":""}">${g}</th>`).join("")}</tr>`:"";
+    const foot=t.foot&&rows.length?`<tfoot><tr>${t.cols.map((c,i)=>{const cl=[starts.has(i)?"gs":"",c[3]?.stickR?"stick-r":""].join(" ");return c[2]==="br"?`<td class="num r ${cl}">${nf.format(sumBy(rows,c[1]))}</td>`:i===0?`<td class="${cl}">Total</td>`:`<td class="${cl}"></td>`}).join("")}</tr></tfoot>`:"";
+    return `${t.h?`<h2>${t.h}</h2>`:""}<div class="tablebox"><table class="${t.groups?"grouped":""}"><thead>${groups}<tr class="cols">${t.cols.map((c,i)=>`<th class="${["br","delta"].includes(c[2])?"r":""} ${starts.has(i)?"gs":""} ${c[3]?.stickR?"stick-r":""}"><button data-t="${ti}" data-k="${c[1]}">${c[0]}${s&&s.k===c[1]?`<span class="arw">${s.asc?" ▲":" ▼"}</span>`:""}</button></th>`).join("")}</tr></thead>
+    <tbody>${rows.length?rows.map(r=>`<tr>${t.cols.map((c,i)=>cell(c,r,starts.has(i))).join("")}</tr>`).join(""):`<tr><td colspan="${t.cols.length}" class="empty">${q?"Nada encontrado para essa busca.":"Nenhum registro ainda."}</td></tr>`}</tbody>${foot}</table></div>`;
   }).join("");
   $("count").textContent=q?`${shown} de ${tot} linhas`:`${tot} linhas`;
 }
@@ -298,7 +332,7 @@ function startEdit(el){
     if(!save||inp.value.trim()===(old==="—"?"":old.replace(/\./g,""))){el.textContent=old;return}
     try{const r=await api(`/api/${rf.t}/${encodeURIComponent(rf.id)}`,{method:"PATCH",token:getToken(),body:JSON.stringify({field:rf.f,value:inp.value.trim(),context:rf.ctx})});
       applyLocal(rf,r.value);toast("Valor salvo");
-      auditLog=await api("/api/auditLog").catch(()=>auditLog);render(true);
+      auditLog=await api("/api/history").catch(()=>auditLog);render(true);
     }catch(e){el.textContent=old;toast(e.message,true);if(e.status===401){setToken("");setEditing(false)}}};
   inp.addEventListener("keydown",e=>{if(e.key==="Enter")finish(true);if(e.key==="Escape")finish(false)});
   inp.addEventListener("blur",()=>finish(true));
@@ -306,7 +340,7 @@ function startEdit(el){
 function setEditing(on){editing=on;$("editBtn").classList.toggle("on",on);$("editBtn").textContent=on?"Sair da edição":"Editar valores";render(true)}
 
 /* ===== Eventos ===== */
-$("tabs").addEventListener("click",async e=>{const b=e.target.closest(".tab");if(!b)return;view=b.dataset.v;if(view==="hist")auditLog=await api("/api/auditLog").catch(()=>[]);location.hash=view;render()});
+$("tabs").addEventListener("click",async e=>{const b=e.target.closest(".tab");if(!b)return;view=b.dataset.v;if(view==="hist")auditLog=await api("/api/history").catch(()=>[]);location.hash=view;render()});
 $("app").addEventListener("click",e=>{
   const m=e.target.closest("[data-m]");if(m){taxMode=m.dataset.m;render(true);return}
   const th=e.target.closest("th button");if(th){const key=view+th.dataset.t,s=sorts[key];sorts[key]={k:th.dataset.k,asc:s&&s.k===th.dataset.k?!s.asc:true};renderTables();return}
@@ -329,7 +363,7 @@ $("themeBtn").addEventListener("click",()=>{const r=document.documentElement;con
 (async()=>{
   try{D=await api("/api/data");canEdit=D.editable;$("editBtn").hidden=!canEdit;
     const h=location.hash.slice(1);if(["pids","dvb","old","taxas","isdb","hist"].includes(h))view=h;
-    if(view==="hist")auditLog=await api("/api/auditLog").catch(()=>[]);
+    if(view==="hist")auditLog=await api("/api/history").catch(()=>[]);
     render();
   }catch(e){$("app").innerHTML=`<p class="state">Não foi possível carregar os dados do banco. ${esc(e.message)}</p>`}
 })();
