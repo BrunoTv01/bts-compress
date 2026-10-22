@@ -112,6 +112,9 @@ td.equip{min-width:170px;white-space:normal}
 .ph{font-size:13px;color:var(--warn);font-weight:500}
 .eqm{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
 td.tx{white-space:normal;min-width:120px}
+td.nm{cursor:pointer}
+td.nm .pen{font-size:12px;color:var(--warn);font-weight:400}
+td.nm:hover .pen{color:var(--accent)}
 .btn.sm{font-size:12.5px;padding:4px 10px}
 .btn.danger{color:var(--bad);border-color:var(--bad-bg)}
 .btn.danger[data-armed="1"]{background:var(--bad);border-color:var(--bad);color:#fff}
@@ -222,6 +225,7 @@ let D=null,view="pids",taxMode="enc",sorts={},editing=false,canEdit=false,auditL
 const S=k=>D.settings.find(s=>s.key===k)?.value;
 const ref=(t,id,f,ctx)=>({t,id,f,ctx});
 
+function svcNameRef(s){return {...ref("services",s.id,"name",`Serviço ${s.name} · nome`),kind:"text",renameSvc:1}}
 function build(){
   const svc=Object.fromEntries(D.services.map(s=>[s.id,s]));
   const br=cfg=>D.bitrates.filter(b=>b.config===cfg);
@@ -229,20 +233,20 @@ function build(){
     const row={id:s.service_id,svc:s.name,cod:s.codec,br:b?.mbps??null,note:b?.note,_ref:{}};
     for(const k of["v","a1","a2","a3","a4","pcr","pmt","dem","ait","cc","ect","data"]){row[k]=p[k];row._ref[k]=ref("service_pids",p.service_id,k,`${s.name} · PID ${k}`)}
     if(b)row._ref.br=ref("bitrates",b.id,"mbps",`${s.name} · PIDs total`);
-    row._del=[["service_pids",p.service_id],...(b?[["bitrates",b.id]]:[])];row._name=s.name;return row});
+    row._del=[["service_pids",p.service_id],...(b?[["bitrates",b.id]]:[])];row._name=s.name;row._ref.svc=svcNameRef(s);return row});
   const tit=br("titular"),res=br("reserva"),old=br("antigo");
   const nowIds=D.services.filter(s=>tit.some(x=>x.service_id===s.id)||res.some(x=>x.service_id===s.id)).map(s=>s.id);
   const nowRows=nowIds.map(sid=>{const s=svc[sid],t=tit.find(x=>x.service_id===sid),r=res.find(x=>x.service_id===sid);
     return {id:s.service_id,svc:s.name,encT:t?.equipment_id??null,tit:t?.mbps??null,encR:r?.equipment_id??null,res:r?.mbps??null,d:t&&r&&t.mbps!=null&&r.mbps!=null?r3(r.mbps-t.mbps):null,
       _txt:[eqLabel(t?.equipment_id),eqLabel(r?.equipment_id)].join(" "),_name:s.name,_del:[...(t?[["bitrates",t.id]]:[]),...(r?[["bitrates",r.id]]:[])],
-      _ref:{...(t?{tit:ref("bitrates",t.id,"mbps",`${s.name} · titular`),encT:{...ref("bitrates",t.id,"equipment_id",`${s.name} · encoder titular`),kind:"equip",prefer:"Encoder"}}:{}),
+      _ref:{svc:svcNameRef(s),...(t?{tit:ref("bitrates",t.id,"mbps",`${s.name} · titular`),encT:{...ref("bitrates",t.id,"equipment_id",`${s.name} · encoder titular`),kind:"equip",prefer:"Encoder"}}:{}),
         ...(r?{res:ref("bitrates",r.id,"mbps",`${s.name} · reserva`),encR:{...ref("bitrates",r.id,"equipment_id",`${s.name} · encoder reserva`),kind:"equip",prefer:"Encoder"}}:{})}}});
   const oldRows=old.map(o=>{const s=svc[o.service_id],t=tit.find(x=>x.service_id===o.service_id);
-    return {id:s.service_id,svc:o.label||s.name,br:o.mbps,now:t?.mbps??null,d:t&&o.mbps!=null&&t.mbps!=null?r3(t.mbps-o.mbps):null,_name:s.name,_del:[["bitrates",o.id]],_ref:{br:ref("bitrates",o.id,"mbps",`${s.name} · antigo`)}}});
+    return {id:s.service_id,svc:o.label||s.name,br:o.mbps,now:t?.mbps??null,d:t&&o.mbps!=null&&t.mbps!=null?r3(t.mbps-o.mbps):null,_name:s.name,_del:[["bitrates",o.id]],_ref:{svc:o.label?{...ref("bitrates",o.id,"label",`${s.name} · nome na configuração antiga`),kind:"text"}:svcNameRef(s),br:ref("bitrates",o.id,"mbps",`${s.name} · antigo`)}}});
   const taxRows=D.encoder.filter(e=>e.source===taxMode).map(e=>{const s=svc[e.service_id];const row={svc:s.name,isdb:s.system,equip:e.equipment_id??null,_txt:eqLabel(e.equipment_id),_ref:{equip:{...ref("encoder_rates",e.id,"equipment_id",`${s.name} · equipamento ${taxMode==="enc"?"encoder":"mux"}`),kind:"equip",prefer:taxMode==="enc"?"Encoder":"Multiplexador"}}};
-    for(const k of["a1","a2","a3","a4","v","cc"]){row[k]=e[k];row._ref[k]=ref("encoder_rates",e.id,k,`${s.name} · ${taxMode} ${k}`)}row._name=s.name;row._del=[["encoder_rates",e.id]];return row});
-  const layerRows=D.layers.map(l=>({layer:l.layer,svc:l.name,equip:l.equipment_id??null,_txt:eqLabel(l.equipment_id),br:l.mbps,_name:l.name,_del:[["isdb_layers",l.id]],_ref:{br:ref("isdb_layers",l.id,"mbps",`ISDB-T ${l.name}`),equip:{...ref("isdb_layers",l.id,"equipment_id",`ISDB-T ${l.name} · equipamento`),kind:"equip",prefer:"Encoder"}}}));
-  const isdbPidRows=D.isdbPids.map(p=>({grp:p.grp,pid:p.pid,ident:p.ident,br:p.mbps,_name:`PID ${p.pid??"—"} (${p.grp})`,_del:[["isdb_pids",p.id]],_ref:{pid:ref("isdb_pids",p.id,"pid",`ISDB-T ${p.grp} ${p.ident}`),ident:{...ref("isdb_pids",p.id,"ident",`ISDB-T ${p.grp} PID ${p.pid}`),kind:"text",list:"idents"},br:ref("isdb_pids",p.id,"mbps",`ISDB-T ${p.grp} ${p.ident}`)}}));
+    for(const k of["a1","a2","a3","a4","v","cc"]){row[k]=e[k];row._ref[k]=ref("encoder_rates",e.id,k,`${s.name} · ${taxMode} ${k}`)}row._name=s.name;row._del=[["encoder_rates",e.id]];row._ref.svc=svcNameRef(s);return row});
+  const layerRows=D.layers.map(l=>({layer:l.layer,svc:l.name,equip:l.equipment_id??null,_txt:eqLabel(l.equipment_id),br:l.mbps,_name:l.name,_del:[["isdb_layers",l.id]],_ref:{svc:{...ref("isdb_layers",l.id,"name",`ISDB-T ${l.name} · nome`),kind:"text",list:"svcnames"},br:ref("isdb_layers",l.id,"mbps",`ISDB-T ${l.name}`),equip:{...ref("isdb_layers",l.id,"equipment_id",`ISDB-T ${l.name} · equipamento`),kind:"equip",prefer:"Encoder"}}}));
+  const isdbPidRows=D.isdbPids.map(p=>({grp:p.grp,pid:p.pid,ident:p.ident,br:p.mbps,_name:`PID ${p.pid??"—"} (${p.grp})`,_del:[["isdb_pids",p.id]],_ref:{grp:{...ref("isdb_pids",p.id,"grp",`ISDB-T PID ${p.pid} · grupo`),kind:"text",list:"groups"},pid:ref("isdb_pids",p.id,"pid",`ISDB-T ${p.grp} ${p.ident}`),ident:{...ref("isdb_pids",p.id,"ident",`ISDB-T ${p.grp} PID ${p.pid}`),kind:"text",list:"idents"},br:ref("isdb_pids",p.id,"mbps",`ISDB-T ${p.grp} ${p.ident}`)}}));
   // equipamentos: onde cada um está em uso
   const uses={};const addUse=(id,txt)=>{if(id!=null)(uses[id]??=[]).push(txt)};
   for(const b of D.bitrates)if(["titular","reserva"].includes(b.config))addUse(b.equipment_id,`${svc[b.service_id].name} (${b.config})`);
@@ -331,6 +335,8 @@ function cell(c,r,gs){
   const cls=[gs?"gs":"",o.stickR?"stick-r":""].join(" ").trim();
   const ed=rf?` class="ed ${["num","br","pid"].includes(c[2])?"num":""} ${c[2]==="br"?"r":""} ${cls}" data-ref='${esc(JSON.stringify(rf))}' tabindex="0" title="Clique para editar"`:"";
   const C=x=>`class="${x} ${cls}"`;
+  const nameRf=editing&&r._ref&&r._ref[c[1]];
+  if((c[2]==="svc"||c[2]==="svcid")&&nameRf)return `<td class="ed nm ${cls}" data-ref='${esc(JSON.stringify(nameRf))}' data-val="${esc(v)}" tabindex="0" title="Clique para mudar o nome"><span class="svc"><span class="dot" style="background:${col(v)}"></span><span>${esc(v)} <span class="pen" aria-hidden="true">✎</span>${c[2]==="svcid"&&r.id!=null?`<small>ID ${r.id}</small>`:""}</span></span></td>`;
   if(c[2]==="svc")return `<td ${C("")}>${svcCell(v)}</td>`;
   if(c[2]==="svcid")return `<td ${C("")}><span class="svc"><span class="dot" style="background:${col(v)}"></span><span>${esc(v)}${r.id!=null?`<small>ID ${r.id}</small>`:""}</span></span></td>`;
   if(c[2]==="delta")return `<td ${C("num r")}>${v==null?"—":`<span class="dl ${v>0?"up":v<0?"down":"eq"}">${v>0?"▲ +":v<0?"▼ ":""}${nf.format(v)}</span>`}</td>`;
@@ -354,7 +360,7 @@ function cell(c,r,gs){
   if(c[2]==="where")return `<td ${C("")}>${r._where.length?r._where.map(w=>`<span class="chip c-acc">${w}</span>`).join(" "):'<span class="chip c-warn">nenhuma</span>'}</td>`;
   if(c[2]==="act")return `<td ${C("r")}><button type="button" class="btn sm danger" data-del="${v}">Excluir</button></td>`;
   if(c[2]==="uso")return `<td ${C("")}>${v?`<span class="chip c-acc" title="${esc(r._uses.join(", "))}">${v} ${v>1?"usos":"uso"}</span>`:'<span class="chip c-warn">sem uso</span>'}</td>`;
-  if(["ename","func","txt"].includes(c[2])&&rf)return `<td class="ed tx ${cls}" data-ref='${esc(JSON.stringify(rf))}' tabindex="0" title="Clique para editar">${v?esc(v):'<span class="ph">+ informar</span>'}</td>`;
+  if(["ename","func","txt"].includes(c[2])&&rf)return `<td class="ed tx ${cls}" data-ref='${esc(JSON.stringify(rf))}' data-val="${esc(v??"")}" tabindex="0" title="Clique para editar">${v?esc(v):'<span class="ph">+ informar</span>'}</td>`;
   if(c[2]==="ename")return `<td ${C("")}><b>${esc(v)}</b></td>`;
   if(c[2]==="func")return `<td ${C(v?"":"nil")}>${v?`<span class="chip c-ok">${esc(v)}</span>`:"—"}</td>`;
   if(c[2]==="pid")return rf?`<td${ed}>${v??"—"}</td>`:`<td ${C("num"+(v==null?" nil":""))}>${v??"—"}</td>`;
@@ -386,7 +392,7 @@ function render(keepSearch){
   $("app").innerHTML=`<section class="hero"><span class="eyebrow">${V.eyebrow}</span><h1>${V.title}</h1><p class="lede">${V.lede}</p></section>
     <section class="cards">${V.cards}</section>${V.usage}
     <div class="tools"><input id="q" type="search" placeholder="Buscar serviço, PID ou valor…" aria-label="Buscar">${V.extra||""}<span class="count" id="count"></span></div>
-    ${editing?'<p class="editbar"><span class="chip c-warn">Modo edição</span><span>Clique num valor sublinhado, em <b>+ informar</b> ou em <b>+ escolher</b>. Enter salva, Esc cancela, vazio apaga.</span></p>':""}
+    ${editing?'<p class="editbar"><span class="chip c-warn">Modo edição</span><span>Clique num valor sublinhado, num nome com ✎, em <b>+ informar</b> ou em <b>+ escolher</b>. Enter salva, Esc cancela, vazio apaga.</span></p>':""}
     ${V.form==="equip"?equipForm():V.form==="svc"?svcForm():""}
     <datalist id="codecs"><option value="MPEG 1"><option value="MPEG 2"><option value="MPEG 4"><option value="HEVC"><option value="AAC"></datalist>
     <datalist id="systems"><option value="DVB"><option value="ISDB-T"></datalist>
@@ -413,13 +419,14 @@ function startEdit(el){
   if(rf.kind==="equip")return startSelect(el,rf);
   const isText=rf.kind==="text";
   const old=el.querySelector(".ph")?"—":el.textContent.trim(),oldHtml=el.innerHTML;
-  const start=old==="—"?"":isText?old:old.replace(/\./g,"");
+  const start=el.dataset.val!=null?el.dataset.val:old==="—"?"":isText?old:old.replace(/\./g,"");
   el.innerHTML=isText?`<input class="cell text" ${rf.list?`list="${rf.list}"`:""} value="${esc(start)}" aria-label="Novo valor">`:`<input class="cell" inputmode="decimal" value="${esc(start)}" aria-label="Novo valor">`;
   const inp=el.querySelector("input");inp.focus();inp.select();
   let done=false;
   const finish=async save=>{if(done)return;done=true;
     if(!save||inp.value.trim()===start){el.innerHTML=oldHtml;return}
     try{const r=await api(`/api/${rf.t}/${encodeURIComponent(rf.id)}`,{method:"PATCH",token:getToken(),body:JSON.stringify({field:rf.f,value:inp.value.trim(),context:rf.ctx})});
+      if(rf.renameSvc||rf.t==="services"&&rf.f==="name"){await reload("Nome alterado em todas as abas");return}
       applyLocal(rf,r.value);toast("Valor salvo");
       auditLog=await api("/api/history").catch(()=>auditLog);render(true);
     }catch(e){el.innerHTML=oldHtml;toast(e.message,true);if(e.status===401){setToken("");setEditing(false)}}};

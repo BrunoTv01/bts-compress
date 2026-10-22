@@ -20,13 +20,13 @@ const pool = new pg.Pool({
 // Campos que podem ser editados pelo sistema: tabela -> { chave primária, colunas, tipo }
 const EDITABLE = {
   settings:      { pk: 'key',        cols: ['value'], type: 'number' },
-  bitrates:      { pk: 'id',         cols: ['mbps'],  type: 'number', text: ['note', 'encoder'], extra: { equipment_id: 'ref' } },
+  bitrates:      { pk: 'id',         cols: ['mbps'],  type: 'number', text: ['note', 'encoder', 'label'], extra: { equipment_id: 'ref' } },
   service_pids:  { pk: 'service_id', cols: ['v', 'a1', 'a2', 'a3', 'a4', 'pcr', 'pmt', 'dem', 'ait', 'cc', 'ect', 'data'], type: 'int' },
   encoder_rates: { pk: 'id',         cols: ['a1', 'a2', 'a3', 'a4', 'v', 'cc'], type: 'number', text: ['equipment'], extra: { equipment_id: 'ref' } },
   services:      { pk: 'id',         cols: ['service_id'], type: 'ref', text: ['name', 'codec', 'system'] },
   equipment:     { pk: 'id',         cols: [], type: 'text', text: ['name', 'manufacturer', 'model', 'function', 'location', 'serial', 'notes'] },
-  isdb_layers:   { pk: 'id',         cols: ['mbps'],  type: 'number', extra: { equipment_id: 'ref' } },
-  isdb_pids:     { pk: 'id',         cols: ['pid'],   type: 'int', extra: { mbps: 'number' } },
+  isdb_layers:   { pk: 'id',         cols: ['mbps'],  type: 'number', text: ['name'], extra: { equipment_id: 'ref' } },
+  isdb_pids:     { pk: 'id',         cols: ['pid'],   type: 'int', text: ['grp', 'ident'], extra: { mbps: 'number' } },
 };
 
 async function migrate() {
@@ -263,7 +263,7 @@ app.patch('/api/:table/:id', requireAdmin, async (req, res, next) => {
     value = n;
   }
   if (type === 'text' && value !== null) value = String(value).trim().slice(0, 500) || null;
-  if (['equipment', 'services'].includes(req.params.table) && field === 'name' && value === null)
+  if ((['equipment', 'services', 'isdb_layers'].includes(req.params.table) && field === 'name' || field === 'grp') && value === null)
     return res.status(400).json({ error: 'O nome é obrigatório.' });
 
   const t = req.params.table;
@@ -273,6 +273,8 @@ app.patch('/api/:table/:id', requireAdmin, async (req, res, next) => {
     const cur = await client.query(`SELECT ${field} AS v FROM ${t} WHERE ${spec.pk}=$1 FOR UPDATE`, [req.params.id]);
     if (!cur.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Registro não encontrado.' }); }
     await client.query(`UPDATE ${t} SET ${field}=$1 WHERE ${spec.pk}=$2`, [value, req.params.id]);
+    if (t === 'services' && field === 'name' && cur.rows[0].v) // a linha ISDB-T com o mesmo nome acompanha a troca
+      await client.query('UPDATE isdb_layers SET name=$1 WHERE name=$2', [value, cur.rows[0].v]);
     let oldTxt = cur.rows[0].v == null ? null : String(cur.rows[0].v), newTxt = value == null ? null : String(value);
     if (field === 'equipment_id') { // no histórico, mostra o nome do equipamento em vez do número
       const names = await client.query('SELECT id,name,model FROM equipment WHERE id = ANY($1::int[])', [[cur.rows[0].v, value].filter(v => v != null)]);
