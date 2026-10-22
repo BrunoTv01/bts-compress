@@ -115,6 +115,16 @@ td.tx{white-space:normal;min-width:120px}
 .btn.sm{font-size:12.5px;padding:4px 10px}
 .btn.danger{color:var(--bad);border-color:var(--bad-bg)}
 .btn.danger[data-armed="1"]{background:var(--bad);border-color:var(--bad);color:#fff}
+.addbar{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-end;background:var(--surface);border:1px dashed var(--accent);border-radius:8px;padding:12px 14px;margin-bottom:10px}
+.addbar .ttl{flex-basis:100%;font-weight:600;font-size:14px;color:var(--accent)}
+.addbar label{display:grid;gap:4px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);flex:0 1 160px;min-width:0}
+.addbar label.grow{flex:1 1 220px}
+.addbar input,.addbar select{font:inherit;font-size:14px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0;width:100%}
+.addbar .msg{color:var(--bad);font-size:13px;align-self:center}
+.addbar .empty-pick{font-size:13px;color:var(--muted);align-self:center}
+.checks{display:flex;flex-wrap:wrap;gap:8px 16px;grid-column:1/-1}
+.eqgrid .checks label{display:flex;flex-direction:row;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:14px;font-weight:400;color:var(--fg);cursor:pointer}
+.eqgrid .checks input{width:auto;accent-color:var(--accent)}
 .eqform{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px 16px 16px;margin-bottom:16px}
 .eqform h2{margin:14px 0 12px}
 .eqgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
@@ -218,19 +228,21 @@ function build(){
   const pidsRows=D.pids.map(p=>{const s=svc[p.service_id],b=br("pids_total").find(x=>x.service_id===p.service_id);
     const row={id:s.service_id,svc:s.name,cod:s.codec,br:b?.mbps??null,note:b?.note,_ref:{}};
     for(const k of["v","a1","a2","a3","a4","pcr","pmt","dem","ait","cc","ect","data"]){row[k]=p[k];row._ref[k]=ref("service_pids",p.service_id,k,`${s.name} · PID ${k}`)}
-    if(b)row._ref.br=ref("bitrates",b.id,"mbps",`${s.name} · PIDs total`);return row});
+    if(b)row._ref.br=ref("bitrates",b.id,"mbps",`${s.name} · PIDs total`);
+    row._del=[["service_pids",p.service_id],...(b?[["bitrates",b.id]]:[])];row._name=s.name;return row});
   const tit=br("titular"),res=br("reserva"),old=br("antigo");
-  const nowRows=tit.map(t=>{const s=svc[t.service_id],r=res.find(x=>x.service_id===t.service_id);
-    return {id:s.service_id,svc:s.name,encT:t.equipment_id??null,tit:t.mbps,encR:r?.equipment_id??null,res:r?.mbps??null,d:r&&t.mbps!=null&&r.mbps!=null?r3(r.mbps-t.mbps):null,
-      _txt:[eqLabel(t.equipment_id),eqLabel(r?.equipment_id)].join(" "),
-      _ref:{tit:ref("bitrates",t.id,"mbps",`${s.name} · titular`),encT:{...ref("bitrates",t.id,"equipment_id",`${s.name} · encoder titular`),kind:"equip",prefer:"Encoder"},
+  const nowIds=D.services.filter(s=>tit.some(x=>x.service_id===s.id)||res.some(x=>x.service_id===s.id)).map(s=>s.id);
+  const nowRows=nowIds.map(sid=>{const s=svc[sid],t=tit.find(x=>x.service_id===sid),r=res.find(x=>x.service_id===sid);
+    return {id:s.service_id,svc:s.name,encT:t?.equipment_id??null,tit:t?.mbps??null,encR:r?.equipment_id??null,res:r?.mbps??null,d:t&&r&&t.mbps!=null&&r.mbps!=null?r3(r.mbps-t.mbps):null,
+      _txt:[eqLabel(t?.equipment_id),eqLabel(r?.equipment_id)].join(" "),_name:s.name,_del:[...(t?[["bitrates",t.id]]:[]),...(r?[["bitrates",r.id]]:[])],
+      _ref:{...(t?{tit:ref("bitrates",t.id,"mbps",`${s.name} · titular`),encT:{...ref("bitrates",t.id,"equipment_id",`${s.name} · encoder titular`),kind:"equip",prefer:"Encoder"}}:{}),
         ...(r?{res:ref("bitrates",r.id,"mbps",`${s.name} · reserva`),encR:{...ref("bitrates",r.id,"equipment_id",`${s.name} · encoder reserva`),kind:"equip",prefer:"Encoder"}}:{})}}});
   const oldRows=old.map(o=>{const s=svc[o.service_id],t=tit.find(x=>x.service_id===o.service_id);
-    return {id:s.service_id,svc:o.label||s.name,br:o.mbps,now:t?.mbps??null,d:t&&o.mbps!=null&&t.mbps!=null?r3(t.mbps-o.mbps):null,_ref:{br:ref("bitrates",o.id,"mbps",`${s.name} · antigo`)}}});
+    return {id:s.service_id,svc:o.label||s.name,br:o.mbps,now:t?.mbps??null,d:t&&o.mbps!=null&&t.mbps!=null?r3(t.mbps-o.mbps):null,_name:s.name,_del:[["bitrates",o.id]],_ref:{br:ref("bitrates",o.id,"mbps",`${s.name} · antigo`)}}});
   const taxRows=D.encoder.filter(e=>e.source===taxMode).map(e=>{const s=svc[e.service_id];const row={svc:s.name,isdb:s.system,equip:e.equipment_id??null,_txt:eqLabel(e.equipment_id),_ref:{equip:{...ref("encoder_rates",e.id,"equipment_id",`${s.name} · equipamento ${taxMode==="enc"?"encoder":"mux"}`),kind:"equip",prefer:taxMode==="enc"?"Encoder":"Multiplexador"}}};
-    for(const k of["a1","a2","a3","a4","v","cc"]){row[k]=e[k];row._ref[k]=ref("encoder_rates",e.id,k,`${s.name} · ${taxMode} ${k}`)}return row});
-  const layerRows=D.layers.map(l=>({layer:l.layer,svc:l.name,equip:l.equipment_id??null,_txt:eqLabel(l.equipment_id),br:l.mbps,_ref:{br:ref("isdb_layers",l.id,"mbps",`ISDB-T ${l.name}`),equip:{...ref("isdb_layers",l.id,"equipment_id",`ISDB-T ${l.name} · equipamento`),kind:"equip",prefer:"Encoder"}}}));
-  const isdbPidRows=D.isdbPids.map(p=>({grp:p.grp,pid:p.pid,ident:p.ident,br:p.mbps,_ref:{pid:ref("isdb_pids",p.id,"pid",`ISDB-T ${p.grp} ${p.ident}`),br:ref("isdb_pids",p.id,"mbps",`ISDB-T ${p.grp} ${p.ident}`)}}));
+    for(const k of["a1","a2","a3","a4","v","cc"]){row[k]=e[k];row._ref[k]=ref("encoder_rates",e.id,k,`${s.name} · ${taxMode} ${k}`)}row._name=s.name;row._del=[["encoder_rates",e.id]];return row});
+  const layerRows=D.layers.map(l=>({layer:l.layer,svc:l.name,equip:l.equipment_id??null,_txt:eqLabel(l.equipment_id),br:l.mbps,_name:l.name,_del:[["isdb_layers",l.id]],_ref:{br:ref("isdb_layers",l.id,"mbps",`ISDB-T ${l.name}`),equip:{...ref("isdb_layers",l.id,"equipment_id",`ISDB-T ${l.name} · equipamento`),kind:"equip",prefer:"Encoder"}}}));
+  const isdbPidRows=D.isdbPids.map(p=>({grp:p.grp,pid:p.pid,ident:p.ident,br:p.mbps,_name:`PID ${p.pid??"—"} (${p.grp})`,_del:[["isdb_pids",p.id]],_ref:{pid:ref("isdb_pids",p.id,"pid",`ISDB-T ${p.grp} ${p.ident}`),ident:{...ref("isdb_pids",p.id,"ident",`ISDB-T ${p.grp} PID ${p.pid}`),kind:"text",list:"idents"},br:ref("isdb_pids",p.id,"mbps",`ISDB-T ${p.grp} ${p.ident}`)}}));
   // equipamentos: onde cada um está em uso
   const uses={};const addUse=(id,txt)=>{if(id!=null)(uses[id]??=[]).push(txt)};
   for(const b of D.bitrates)if(["titular","reserva"].includes(b.config))addUse(b.equipment_id,`${svc[b.service_id].name} (${b.config})`);
@@ -239,7 +251,16 @@ function build(){
   const equipRows=D.equipment.map(e=>{const row={eid:e.id,name:e.name,manufacturer:e.manufacturer,model:e.model,function:e.function,location:e.location,serial:e.serial,notes:e.notes,uso:(uses[e.id]||[]).length,_uses:uses[e.id]||[],_ref:{}};
     for(const f of["name","manufacturer","model","function","location","serial","notes"])row._ref[f]={...ref("equipment",e.id,f,`Equipamento ${e.name} · ${f}`),kind:"text",list:f==="function"?"functions":f==="manufacturer"?"makers":""};
     return row});
-  return {pidsRows,nowRows,oldRows,taxRows,layerRows,isdbPidRows,equipRows,svc};
+  // serviços: em quais abas cada um aparece
+  const svcRows=D.services.map(s=>{const where=[];
+    if(D.pids.some(p=>p.service_id===s.id))where.push("PIDs");
+    for(const [c,l] of[["titular","Titular"],["reserva","Reserva"],["antigo","Antigo"]])if(D.bitrates.some(b=>b.service_id===s.id&&b.config===c))where.push(l);
+    for(const [c,l] of[["enc","Encoder"],["mux","Mux"]])if(D.encoder.some(e=>e.service_id===s.id&&e.source===c))where.push(l);
+    if(D.layers.some(l=>l.name===s.name))where.push("ISDB-T");
+    return {sid:s.id,name:s.name,service_id:s.service_id,codec:s.codec,system:s.system,where:where.join(" · "),_where:where,
+      _ref:{name:{...ref("services",s.id,"name",`Serviço ${s.name} · nome`),kind:"text"},service_id:ref("services",s.id,"service_id",`Serviço ${s.name} · ID`),
+        codec:{...ref("services",s.id,"codec",`Serviço ${s.name} · codificação`),kind:"text",list:"codecs"},system:{...ref("services",s.id,"system",`Serviço ${s.name} · sistema`),kind:"text",list:"systems"}}}});
+  return {pidsRows,nowRows,oldRows,taxRows,layerRows,isdbPidRows,equipRows,svcRows,svc};
 }
 
 function views(B){
@@ -254,37 +275,43 @@ function views(B){
     lede:"Mapa de PIDs decimais por serviço (vídeo, áudios, PCR, PMT, closed caption, dados) e bitrate titular de cada um.",
     cards:card("Disponível",nf.format(AV),"Mbps","Banda total do mux")+card("Utilizado",nf.format(usedPids),"Mbps",`${pct(usedPids,AV)}% do mux`)+freeCard("Nulo",AV-usedPids,"good")+card("Serviços",new Set(B.pidsRows.map(r=>r.svc)).size,""),
     usage:usageBar("Ocupação do mux DVB (titular)",B.pidsRows.map(r=>({n:r.svc,v:r.br})),AV),
-    tables:[{rows:B.pidsRows,foot:true,groups:[["Identificação",2],["Vídeo e áudio",5],["Sincronismo",2],["Dados e interatividade",5],["Taxa",1]],cols:[["Serviço","svc","svcid"],["Codificação","cod","txt"],["Vídeo","v","pid"],["Áudio 1","a1","pid"],["Áudio 2","a2","pid"],["Áudio 3","a3","pid"],["Áudio 4","a4","pid"],["PCR","pcr","pid"],["PMT","pmt","pid"],["DEM CC","dem","pid"],["AIT","ait","pid"],["CC","cc","pid"],["ECT","ect","pid"],["Data","data","pid"],["Bitrate (Mbps)","br","br",{bar:AV,stickR:1}]]}],
+    tables:[{rows:B.pidsRows,foot:true,add:()=>addBar("pids","Incluir serviço nesta tabela",svcPick(D.services.filter(s=>!D.pids.some(p=>p.service_id===s.id)))+mbpsIn("mbps","Bitrate (Mbps)")),groups:[["Identificação",2],["Vídeo e áudio",5],["Sincronismo",2],["Dados e interatividade",5],["Taxa",1]],cols:[["Serviço","svc","svcid"],["Codificação","cod","txt"],["Vídeo","v","pid"],["Áudio 1","a1","pid"],["Áudio 2","a2","pid"],["Áudio 3","a3","pid"],["Áudio 4","a4","pid"],["PCR","pcr","pid"],["PMT","pmt","pid"],["DEM CC","dem","pid"],["AIT","ait","pid"],["CC","cc","pid"],["ECT","ect","pid"],["Data","data","pid"],["Bitrate (Mbps)","br","br",{bar:AV,stickR:1}]]}],
     notes:[["PIDs não usados (“XXXX” na planilha) aparecem como “—”."],...flags.map(f=>[`${f.svc}: ${f.note}`,1]),...dupIds.map(([id,v])=>[`ID de serviço ${id} repetido em: ${v.join(", ")}.`,1])]},
    dvb:{tab:"DVB atual",eyebrow:"DVB · Atualizado 20/07/2026",title:"Bitrates atuais: titular x reserva",
     lede:"Comparação das taxas configuradas no sistema titular e no sistema reserva, serviço a serviço.",
     cards:card("Disponível",nf.format(AV),"Mbps")+card("Usado titular",nf.format(usedT),"Mbps",`Sobra ${nf.format(r3(AV-usedT))} Mbps`,AV-usedT<0?"bad":"")+card("Usado reserva",nf.format(usedR),"Mbps",`Sobra ${nf.format(r3(AV-usedR))} Mbps`,AV-usedR<0?"bad":"")+card("Serviços",B.nowRows.length,"","em cada sistema"),
     usage:usageBar("Titular",B.nowRows.map(r=>({n:r.svc,v:r.tit})),AV)+usageBar("Reserva",B.nowRows.map(r=>({n:r.svc,v:r.res})),AV),
-    tables:[{rows:B.nowRows,foot:true,groups:[["Identificação",1],["Titular",2],["Reserva",2],["Comparação",1]],cols:[["Serviço","svc","svcid"],["Encoder","encT","equip"],["Mbps","tit","br",{bar:AV}],["Encoder","encR","equip"],["Mbps","res","br",{bar:AV}],["Diferença (R − T)","d","delta"]]}],
+    tables:[{rows:B.nowRows,foot:true,add:()=>addBar("dvb","Incluir serviço no titular e reserva",svcPick(D.services.filter(s=>!(D.bitrates.some(b=>b.service_id===s.id&&b.config==="titular")&&D.bitrates.some(b=>b.service_id===s.id&&b.config==="reserva"))))+mbpsIn("tit","Titular (Mbps)")+mbpsIn("res","Reserva (Mbps)")),groups:[["Identificação",1],["Titular",2],["Reserva",2],["Comparação",1]],cols:[["Serviço","svc","svcid"],["Encoder","encT","equip"],["Mbps","tit","br",{bar:AV}],["Encoder","encR","equip"],["Mbps","res","br",{bar:AV}],["Diferença (R − T)","d","delta"]]}],
     notes:[["Diferença em vermelho: reserva usa mais banda que o titular. Em verde: usa menos."],[`Encoder definido em ${B.nowRows.filter(r=>r.encT!=null).length} de ${B.nowRows.length} serviços no titular e ${B.nowRows.filter(r=>r.encR!=null).length} no reserva. Os equipamentos vêm da aba Equipamentos.`]]},
    old:{tab:"DVB antigo",eyebrow:"DVB · Configuração antiga",title:"Bitrates antigos x atuais",
     lede:"Taxas da configuração antiga do DVB comparadas com as atuais do titular.",
     cards:card("Disponível",nf.format(AV),"Mbps")+card("Utilizado",nf.format(usedO),"Mbps")+freeCard("Sobra",AV-usedO,"good")+card("Serviços",B.oldRows.length,""),
     usage:usageBar("Ocupação antiga do mux",B.oldRows.map(r=>({n:r.svc,v:r.br})),AV),
-    tables:[{rows:B.oldRows,foot:true,cols:[["Serviço","svc","svcid"],["Antigo (Mbps)","br","br",{bar:AV}],["Atual titular (Mbps)","now","br",{bar:AV}],["Variação","d","delta"]]}],
+    tables:[{rows:B.oldRows,foot:true,add:()=>addBar("old","Incluir serviço na configuração antiga",svcPick(D.services.filter(s=>!D.bitrates.some(b=>b.service_id===s.id&&b.config==="antigo")))+mbpsIn("mbps","Antigo (Mbps)")),cols:[["Serviço","svc","svcid"],["Antigo (Mbps)","br","br",{bar:AV}],["Atual titular (Mbps)","now","br",{bar:AV}],["Variação","d","delta"]]}],
     notes:[["O ID 1 aparece como CULT BRASIL na configuração antiga e como RÁDIO AM na atual."]]},
    taxas:{tab:"Taxas encoder / mux",eyebrow:"BTS Compress · encoders",title:"Taxas dos encoders e do mux",
     lede:"Áudio e closed caption em kbps, vídeo em Mbps. Alterne entre a taxa configurada no encoder e a medida no mux.",
     cards:card("Vídeo total",nf.format(sumBy(B.taxRows,"v")),"Mbps",taxMode==="enc"?"Encoders":"Mux")+card("Áudio total",nf.format(["a1","a2","a3","a4"].reduce((s,k)=>s+sumBy(B.taxRows,k),0)),"kbps")+card("Serviços",B.taxRows.length,"")+card("ISDB-T",B.taxRows.filter(r=>r.isdb==="ISDB-T").length,"","serviços"),
     usage:"",extra:`<span class="seg" role="group" aria-label="Origem"><button type="button" data-m="enc" class="${taxMode==="enc"?"on":""}">Encoder</button><button type="button" data-m="mux" class="${taxMode==="mux"?"on":""}">Mux</button></span>`,
-    tables:[{rows:B.taxRows,groups:[["Identificação",3],["Áudio (kbps)",4],["Vídeo",1],["Legenda",1]],cols:[["Serviço","svc","svc"],["Sistema","isdb","sys"],[taxMode==="enc"?"Encoder":"Mux","equip","equip"],["Áudio 1","a1","num"],["Áudio 2","a2","num"],["Áudio 3","a3","num"],["Áudio 4 · Atmos","a4","num"],["Mbps","v","num"],["CC kbps","cc","num"]]}],
+    tables:[{rows:B.taxRows,add:()=>addBar("taxas",`Incluir serviço (${taxMode==="enc"?"encoder":"mux"})`,svcPick(D.services.filter(s=>!D.encoder.some(e=>e.service_id===s.id&&e.source===taxMode)))),groups:[["Identificação",3],["Áudio (kbps)",4],["Vídeo",1],["Legenda",1]],cols:[["Serviço","svc","svc"],["Sistema","isdb","sys"],[taxMode==="enc"?"Encoder":"Mux","equip","equip"],["Áudio 1","a1","num"],["Áudio 2","a2","num"],["Áudio 3","a3","num"],["Áudio 4 · Atmos","a4","num"],["Mbps","v","num"],["CC kbps","cc","num"]]}],
     notes:[["EPG e interatividade estão sem valor nas duas tabelas da planilha."],[`Equipamento definido em ${B.taxRows.filter(r=>r.equip!=null).length} de ${B.taxRows.length} serviços (${taxMode==="enc"?"encoder":"mux"}). Encoder e mux têm campos separados: troque pelo botão acima. Os equipamentos vêm da aba Equipamentos.`]]},
    isdb:{tab:"ISDB-T",eyebrow:"ISDB-T · Cinco canais",title:"ISDB-T: layers e PIDs",
     lede:"Sistema atual com as alterações de taxas, modulação e FEC: distribuição por layer e taxa medida de cada PID.",
     cards:card("Total layer B",nf.format(LBT),"Mbps")+card("Serviços layer B",nf.format(usedLB),"Mbps",`${pct(usedLB,LBT)}% da layer`)+card("Usado (planilha)",nf.format(LBR),"Mbps",`Sobra ${nf.format(r3(LBT-LBR))} Mbps`,LBT-LBR<1?"warn":"")+card("Layer A (1seg)",nf.format(sumBy(B.layerRows.filter(r=>r.layer==="A"),"br")),"Mbps"),
     usage:usageBar("Layer B",lb.map(r=>({n:r.svc,v:r.br})),LBT),
-    tables:[{h:"Serviços por layer",rows:B.layerRows,foot:true,cols:[["Serviço (proposto)","svc","svc"],["Layer","layer","layer"],["Equipamento","equip","equip"],["Bitrate (Mbps)","br","br",{bar:LBT}]]},
-            {h:"PIDs e taxas medidas",rows:B.isdbPidRows,foot:true,cols:[["Grupo","grp","svc"],["PID","pid","pid"],["Identificação","ident","txt"],["Bitrate (Mbps)","br","br",{bar:LBT}]]}],
+    tables:[{h:"Serviços por layer",rows:B.layerRows,foot:true,add:()=>addBar("layer","Incluir linha na layer",`<label>Layer<select name="layer" id="addLayer"><option>B</option><option>A</option><option>C</option><option>Tabelas</option></select></label><label class="grow">Serviço *<input name="name" id="addLayerName" required list="svcnames" placeholder="Ex.: Canal 2.6"></label>`+mbpsIn("mbps","Bitrate (Mbps)")),cols:[["Serviço (proposto)","svc","svc"],["Layer","layer","layer"],["Equipamento","equip","equip"],["Bitrate (Mbps)","br","br",{bar:LBT}]]},
+            {h:"PIDs e taxas medidas",rows:B.isdbPidRows,foot:true,add:()=>addBar("isdbpid","Incluir PID",`<label class="grow">Grupo *<input name="grp" id="addGrp" required list="groups" placeholder="Ex.: CULTURA HD"></label><label>PID<input name="pid" id="addPid" inputmode="numeric" placeholder="0 a 8191"></label><label>Identificação<input name="ident" id="addIdent" list="idents" placeholder="VIDEO, AUDIO, PMT…"></label>`+mbpsIn("mbps","Bitrate (Mbps)")),cols:[["Grupo","grp","svc"],["PID","pid","pid"],["Identificação","ident","txt"],["Bitrate (Mbps)","br","br",{bar:LBT}]]}],
     notes:[[`Equipamento definido em ${B.layerRows.filter(r=>r.equip!=null).length} de ${B.layerRows.length} linhas. Os equipamentos vêm da aba Equipamentos.`],["“Usado (planilha)” é o valor informado na planilha e inclui tabelas e overhead; a soma dos serviços da layer B pode ser menor."]]},
+   svcs:{tab:"Serviços",eyebrow:"Sistema · cadastro",title:"Serviços",
+    lede:"Cadastre os canais e escolha em quais abas eles aparecem. Excluir um serviço aqui remove ele de todas as abas.",
+    cards:card("Serviços",B.svcRows.length,"")+card("DVB",B.svcRows.filter(r=>r.system!=="ISDB-T").length,"")+card("ISDB-T",B.svcRows.filter(r=>r.system==="ISDB-T").length,"")+card("Sem aba",B.svcRows.filter(r=>!r._where.length).length,"","serviços que não aparecem em nenhuma tabela"),
+    usage:"",form:"svc",
+    tables:[{rows:B.svcRows,cols:[["Nome","name","ename"],["ID de serviço","service_id","pid"],["Codificação","codec","txt"],["Sistema","system","func"],["Aparece em","where","where"],...(editing?[["","sid","delsvc"]]:[])]}],
+    notes:[["Para tirar um serviço de uma aba só, use o botão Excluir na própria aba. O botão Excluir daqui apaga o serviço e todos os valores dele."]]},
    equip:{tab:"Equipamentos",eyebrow:"Sistema · cadastro",title:"Equipamentos",
     lede:"Cadastre os equipamentos que fazem cada processo (encoders, multiplexadores, moduladores). Depois escolha o equipamento nas abas DVB atual, Taxas encoder / mux e ISDB-T.",
     cards:card("Cadastrados",B.equipRows.length,"")+card("Encoders",B.equipRows.filter(r=>/encoder/i.test(r.function||"")).length,"")+card("Multiplexadores",B.equipRows.filter(r=>/mux|multiplex/i.test(r.function||"")).length,"")+card("Em uso",B.equipRows.filter(r=>r.uso>0).length,"",`${B.equipRows.filter(r=>!r.uso).length} sem uso`),
-    usage:"",form:true,
+    usage:"",form:"equip",
     tables:[{rows:B.equipRows,cols:[["Nome","name","ename"],["Fabricante","manufacturer","txt"],["Modelo","model","txt"],["Função","function","func"],["Local","location","txt"],["Nº de série","serial","txt"],["Observação","notes","txt"],["Em uso","uso","uso"],...(editing?[["","eid","act"]]:[])]}],
     notes:[["Excluir um equipamento não apaga os serviços: eles só ficam sem equipamento definido."]]},
    hist:{tab:"Histórico",eyebrow:"Sistema · auditoria",title:"Histórico de alterações",
@@ -322,6 +349,9 @@ function cell(c,r,gs){
     if(rf)return `<td class="ed equip ${cls}" data-ref='${esc(JSON.stringify(rf))}' tabindex="0" title="Clique para escolher o equipamento">${body||'<span class="ph">+ escolher</span>'}</td>`;
     return `<td ${C("equip"+(e?"":" nil"))}>${body||"—"}</td>`;
   }
+  if(c[2]==="del")return `<td ${C("r")}><button type="button" class="btn sm danger" data-delrows='${esc(JSON.stringify({rows:r._del,name:r._name||""}))}'>Excluir</button></td>`;
+  if(c[2]==="delsvc")return `<td ${C("r")}><button type="button" class="btn sm danger" data-delsvc="${v}" data-name="${esc(r.name)}">Excluir</button></td>`;
+  if(c[2]==="where")return `<td ${C("")}>${r._where.length?r._where.map(w=>`<span class="chip c-acc">${w}</span>`).join(" "):'<span class="chip c-warn">nenhuma</span>'}</td>`;
   if(c[2]==="act")return `<td ${C("r")}><button type="button" class="btn sm danger" data-del="${v}">Excluir</button></td>`;
   if(c[2]==="uso")return `<td ${C("")}>${v?`<span class="chip c-acc" title="${esc(r._uses.join(", "))}">${v} ${v>1?"usos":"uso"}</span>`:'<span class="chip c-warn">sem uso</span>'}</td>`;
   if(["ename","func","txt"].includes(c[2])&&rf)return `<td class="ed tx ${cls}" data-ref='${esc(JSON.stringify(rf))}' tabindex="0" title="Clique para editar">${v?esc(v):'<span class="ph">+ informar</span>'}</td>`;
@@ -333,7 +363,9 @@ function cell(c,r,gs){
 }
 function renderTables(){
   const q=($("q")?.value||"").trim().toLowerCase();let shown=0,tot=0;
-  $("tables").innerHTML=V.tables.map((t,ti)=>{
+  $("tables").innerHTML=V.tables.map((t0,ti)=>{
+    const hasDel=editing&&t0.rows.some(r=>r._del);
+    const t=hasDel?{...t0,cols:[...t0.cols,["","_del","del"]],groups:t0.groups?[...t0.groups,["",1]]:null}:t0;
     const key=view+ti,s=sorts[key];let rows=t.rows;tot+=rows.length;
     if(q)rows=rows.filter(r=>Object.entries(r).some(([k,v])=>k!=="_ref"&&k!=="_uses"&&v!=null&&String(v).toLowerCase().includes(q)));
     if(s)rows=[...rows].sort((a,b)=>{const x=a[s.k],y=b[s.k];if(x==null)return 1;if(y==null)return -1;const d=typeof x==="number"?x-y:String(x).localeCompare(String(y),"pt");return s.asc?d:-d});
@@ -342,7 +374,7 @@ function renderTables(){
     const starts=new Set();if(t.groups){let i=0;for(const [,n] of t.groups){if(i>0)starts.add(i);i+=n}}
     const groups=t.groups?`<tr class="groups">${t.groups.map(([g,n],i)=>`<th colspan="${n}" class="${i===t.groups.length-1&&t.cols.at(-1)[3]?.stickR?"stick-r":""}">${g}</th>`).join("")}</tr>`:"";
     const foot=t.foot&&rows.length?`<tfoot><tr>${t.cols.map((c,i)=>{const cl=[starts.has(i)?"gs":"",c[3]?.stickR?"stick-r":""].join(" ");return c[2]==="br"?`<td class="num r ${cl}">${nf.format(sumBy(rows,c[1]))}</td>`:i===0?`<td class="${cl}">Total</td>`:`<td class="${cl}"></td>`}).join("")}</tr></tfoot>`:"";
-    return `${t.h?`<h2>${t.h}</h2>`:""}<div class="tablebox"><table class="${t.groups?"grouped":""}"><thead>${groups}<tr class="cols">${t.cols.map((c,i)=>`<th class="${["br","delta"].includes(c[2])?"r":""} ${starts.has(i)?"gs":""} ${c[3]?.stickR?"stick-r":""}"><button data-t="${ti}" data-k="${c[1]}">${c[0]}${s&&s.k===c[1]?`<span class="arw">${s.asc?" ▲":" ▼"}</span>`:""}</button></th>`).join("")}</tr></thead>
+    return `${t.h?`<h2>${t.h}</h2>`:""}${editing&&t.add?t.add():""}<div class="tablebox"><table class="${t.groups?"grouped":""}"><thead>${groups}<tr class="cols">${t.cols.map((c,i)=>`<th class="${["br","delta"].includes(c[2])?"r":""} ${starts.has(i)?"gs":""} ${c[3]?.stickR?"stick-r":""}"><button data-t="${ti}" data-k="${c[1]}">${c[0]}${s&&s.k===c[1]?`<span class="arw">${s.asc?" ▲":" ▼"}</span>`:""}</button></th>`).join("")}</tr></thead>
     <tbody>${rows.length?rows.map(r=>`<tr>${t.cols.map((c,i)=>cell(c,r,starts.has(i))).join("")}</tr>`).join(""):`<tr><td colspan="${t.cols.length}" class="empty">${q?"Nada encontrado para essa busca.":"Nenhum registro ainda."}</td></tr>`}</tbody>${foot}</table></div>`;
   }).join("");
   $("count").textContent=q?`${shown} de ${tot} linhas`:`${tot} linhas`;
@@ -355,7 +387,12 @@ function render(keepSearch){
     <section class="cards">${V.cards}</section>${V.usage}
     <div class="tools"><input id="q" type="search" placeholder="Buscar serviço, PID ou valor…" aria-label="Buscar">${V.extra||""}<span class="count" id="count"></span></div>
     ${editing?'<p class="editbar"><span class="chip c-warn">Modo edição</span><span>Clique num valor sublinhado, em <b>+ informar</b> ou em <b>+ escolher</b>. Enter salva, Esc cancela, vazio apaga.</span></p>':""}
-    ${V.form?equipForm():""}
+    ${V.form==="equip"?equipForm():V.form==="svc"?svcForm():""}
+    <datalist id="codecs"><option value="MPEG 1"><option value="MPEG 2"><option value="MPEG 4"><option value="HEVC"><option value="AAC"></datalist>
+    <datalist id="systems"><option value="DVB"><option value="ISDB-T"></datalist>
+    <datalist id="svcnames">${D.services.map(s=>`<option value="${esc(s.name)}">`).join("")}</datalist>
+    <datalist id="groups">${[...new Set(D.isdbPids.map(p=>p.grp))].map(g=>`<option value="${esc(g)}">`).join("")}</datalist>
+    <datalist id="idents">${[...new Set(["VIDEO","AUDIO","PMT","PCR","CC",...D.isdbPids.map(p=>p.ident)].filter(Boolean))].map(g=>`<option value="${esc(g)}">`).join("")}</datalist>
     <datalist id="functions">${[...new Set(["Encoder","Multiplexador","Modulador","Transcoder","Receptor IRD","Gerador de tabelas",...D.equipment.map(e=>e.function)].filter(Boolean))].map(e=>`<option value="${esc(e)}">`).join("")}</datalist>
     <datalist id="makers">${[...new Set(D.equipment.map(e=>e.manufacturer).filter(Boolean))].sort().map(e=>`<option value="${esc(e)}">`).join("")}</datalist><div id="tables"></div><div class="notes">${V.notes.map(([n,f])=>`<p class="${f?"flag":""}">${esc(n)}</p>`).join("")}</div>`;
   $("q").value=q;renderTables();
@@ -424,6 +461,43 @@ function equipForm(){
     <div class="eqactions"><button class="btn primary" type="submit">Cadastrar</button><span class="msg" id="eqMsg"></span></div>
   </form>`;
 }
+function svcPick(list){
+  if(!list.length)return `<span class="empty-pick">Todos os serviços já estão nesta tabela. Cadastre um novo na aba <b>Serviços</b>.</span>`;
+  return `<label class="grow">Serviço *<select name="service_id" required><option value="">Escolha…</option>${list.map(s=>`<option value="${s.id}">${esc(s.name)}${s.service_id!=null?` (ID ${s.service_id})`:""}</option>`).join("")}</select></label>`;
+}
+function mbpsIn(name,label){return `<label>${label}<input name="${name}" inputmode="decimal" placeholder="0,000"></label>`}
+function addBar(key,title,fields){
+  return `<form class="addbar" data-add="${key}" autocomplete="off"><span class="ttl">+ ${title}</span>${fields}${fields.includes("empty-pick")?"":`<button class="btn primary" type="submit">Incluir</button>`}<span class="msg"></span></form>`;
+}
+function svcForm(){
+  if(!editing)return `<p class="editbar"><span class="chip c-acc">Cadastro</span><span>Para incluir ou excluir serviços, clique em <b>Editar valores</b> no topo.</span></p>`;
+  const opts=[["pids","Serviços & PIDs",1],["titular","DVB titular",1],["reserva","DVB reserva",1],["antigo","DVB antigo",0],["enc","Taxas encoder",0],["mux","Taxas mux",0],["isdb","ISDB-T (layer B)",0]];
+  return `<form class="eqform" id="svcForm" autocomplete="off">
+    <h2>Cadastrar serviço</h2>
+    <div class="eqgrid">
+      <label>Nome *<input id="svName" name="name" required placeholder="Ex.: CANAL 2.6"></label>
+      <label>ID de serviço<input id="svId" name="service_id" inputmode="numeric" placeholder="Ex.: 59235"></label>
+      <label>Codificação<input id="svCodec" name="codec" list="codecs" placeholder="MPEG 4"></label>
+      <label>Sistema<select id="svSys" name="system"><option>DVB</option><option>ISDB-T</option></select></label>
+      <div class="checks"><span style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);flex-basis:100%">Incluir nas abas</span>${opts.map(([v,l,on])=>`<label><input type="checkbox" name="include" value="${v}" ${on?"checked":""}>${l}</label>`).join("")}</div>
+    </div>
+    <div class="eqactions"><button class="btn primary" type="submit">Cadastrar serviço</button><span class="msg" id="svMsg"></span></div>
+  </form>`;
+}
+async function reload(msg){D=await api("/api/data");auditLog=await api("/api/history").catch(()=>auditLog);if(msg)toast(msg);render(true)}
+function authFail(err){toast(err.message,true);if(err.status===401){setToken("");setEditing(false)}}
+async function postRow(table,body,ignoreDup){
+  try{return await api(`/api/rows/${table}`,{method:"POST",token:getToken(),body:JSON.stringify(body)})}
+  catch(e){if(ignoreDup&&e.status===409)return null;throw e}
+}
+const ADDERS={
+  pids:async f=>{await postRow("service_pids",{service_id:f.service_id,context:"Serviços & PIDs"});await postRow("bitrates",{service_id:f.service_id,config:"pids_total",mbps:f.mbps},true)},
+  dvb:async f=>{await postRow("bitrates",{service_id:f.service_id,config:"titular",mbps:f.tit,context:"DVB atual"},true);await postRow("bitrates",{service_id:f.service_id,config:"reserva",mbps:f.res,context:"DVB atual"},true)},
+  old:async f=>{await postRow("bitrates",{service_id:f.service_id,config:"antigo",mbps:f.mbps,context:"DVB antigo"})},
+  taxas:async f=>{await postRow("encoder_rates",{service_id:f.service_id,source:taxMode,context:"Taxas"})},
+  layer:async f=>{await postRow("isdb_layers",{layer:f.layer,name:f.name,mbps:f.mbps,context:"ISDB-T layers"})},
+  isdbpid:async f=>{await postRow("isdb_pids",{grp:f.grp,pid:f.pid,ident:f.ident,mbps:f.mbps,context:"ISDB-T PIDs"})},
+};
 function setEditing(on){editing=on;$("editBtn").classList.toggle("on",on);$("editBtn").textContent=on?"Sair da edição":"Editar valores";render(true)}
 
 /* ===== Eventos ===== */
@@ -431,6 +505,11 @@ $("tabs").addEventListener("click",async e=>{const b=e.target.closest(".tab");if
 $("app").addEventListener("click",e=>{
   const m=e.target.closest("[data-m]");if(m){taxMode=m.dataset.m;render(true);return}
   const th=e.target.closest("th button");if(th){const key=view+th.dataset.t,s=sorts[key];sorts[key]={k:th.dataset.k,asc:s&&s.k===th.dataset.k?!s.asc:true};renderTables();return}
+  const arm=b=>{if(b.dataset.armed==="1")return true;b.dataset.armed="1";b.textContent="Confirmar exclusão";setTimeout(()=>{if(b.isConnected){b.dataset.armed="";b.textContent="Excluir"}},4000);return false};
+  const dr=e.target.closest("[data-delrows]");if(dr){if(!arm(dr))return;const {rows,name}=JSON.parse(dr.dataset.delrows);
+    (async()=>{try{for(const [t,id] of rows)await api(`/api/rows/${t}/${encodeURIComponent(id)}?context=${encodeURIComponent((V.tab||"")+" · "+name)}`,{method:"DELETE",token:getToken()});await reload("Linha excluída")}catch(err){authFail(err);reload()}})();return}
+  const ds=e.target.closest("[data-delsvc]");if(ds){if(!arm(ds))return;
+    api(`/api/services/${ds.dataset.delsvc}`,{method:"DELETE",token:getToken()}).then(()=>reload(`${ds.dataset.name} excluído`)).catch(authFail);return}
   const del=e.target.closest("[data-del]");if(del){
     if(del.dataset.armed!=="1"){del.dataset.armed="1";del.textContent="Confirmar exclusão";setTimeout(()=>{if(del.isConnected){del.dataset.armed="";del.textContent="Excluir"}},4000);return}
     api(`/api/equipment/${del.dataset.del}`,{method:"DELETE",token:getToken()}).then(()=>{const id=+del.dataset.del;D.equipment=D.equipment.filter(x=>x.id!==id);
@@ -438,7 +517,14 @@ $("app").addEventListener("click",e=>{
       .catch(err=>{toast(err.message,true);if(err.status===401){setToken("");setEditing(false)}});return}
   const ed=e.target.closest("td.ed,.edv");if(ed)startEdit(ed);
 });
-$("app").addEventListener("submit",async e=>{if(e.target.id!=="eqForm")return;e.preventDefault();
+$("app").addEventListener("submit",async e=>{
+  const ab=e.target.closest("form[data-add]");
+  if(ab){e.preventDefault();const f=Object.fromEntries(new FormData(ab).entries()),msg=ab.querySelector(".msg");msg.textContent="";
+    try{await ADDERS[ab.dataset.add](f);await reload("Linha incluída")}catch(err){msg.textContent=err.message;if(err.status===401){setToken("");setEditing(false)}}return}
+  if(e.target.id==="svcForm"){e.preventDefault();const fd=new FormData(e.target),body=Object.fromEntries(fd.entries());body.include=fd.getAll("include");$("svMsg").textContent="";
+    try{const sv=await api("/api/services",{method:"POST",token:getToken(),body:JSON.stringify(body)});await reload(`${sv.name} cadastrado`);$("svName")?.focus()}
+    catch(err){$("svMsg").textContent=err.message;if(err.status===401){setToken("");setEditing(false)}}return}
+  if(e.target.id!=="eqForm")return;e.preventDefault();
   const f=e.target,body=Object.fromEntries(new FormData(f).entries());$("eqMsg").textContent="";
   try{const eq=await api("/api/equipment",{method:"POST",token:getToken(),body:JSON.stringify(body)});D.equipment.push(eq);D.equipment.sort((a,b)=>a.name.localeCompare(b.name,"pt"));
     toast(`${eq.name} cadastrado`);render(true);$("eqName")?.focus()}
@@ -459,7 +545,7 @@ $("themeBtn").addEventListener("click",()=>{const r=document.documentElement;con
 
 (async()=>{
   try{D=await api("/api/data");canEdit=D.editable;$("editBtn").hidden=!canEdit;
-    const h=location.hash.slice(1);if(["pids","dvb","old","taxas","isdb","equip","hist"].includes(h))view=h;
+    const h=location.hash.slice(1);if(["pids","dvb","old","taxas","isdb","svcs","equip","hist"].includes(h))view=h;
     if(view==="hist")auditLog=await api("/api/history").catch(()=>[]);
     render();
   }catch(e){$("app").innerHTML=`<p class="state">Não foi possível carregar os dados do banco. ${esc(e.message)}</p>`}

@@ -9,6 +9,8 @@ Sistema web do estudo **BTS Compress (03/08/2026)**: serviços, PIDs e bitrates 
 - **DVB antigo**: configuração antiga comparada com a atual.
 - **Taxas encoder / mux**: áudio, vídeo e closed caption de cada serviço.
 - **ISDB-T**: serviços por layer e taxa medida de cada PID.
+- **Serviços**: cadastro de canais (nome, ID, codificação, sistema) escolhendo em quais abas eles entram. Excluir aqui remove o serviço de todas as abas.
+- **Incluir e excluir linhas**: no modo edição, cada tabela tem uma barra **+ Incluir** e um botão **Excluir** por linha (com confirmação).
 - **Equipamentos**: cadastro de encoders, multiplexadores e outros (nome, fabricante, modelo, função, local, nº de série). O equipamento de cada serviço é escolhido nas abas DVB atual, Taxas e ISDB-T.
 - **Histórico**: toda alteração feita pelo sistema fica registrada (valor anterior, novo e horário).
 
