@@ -26,7 +26,7 @@ git clone https://github.com/BrunoTv01/bts-compress.git && cd bts-compress
 sudo ./deploy/install.sh --senha SenhaInicial123
 ```
 
-Também há uma opção com Docker (`docker compose up -d`).
+Também há uma opção com Docker: `docker compose up -d`, sem precisar configurar nada.
 
 ## Rodar no Render
 
@@ -37,15 +37,26 @@ Também há uma opção com Docker (`docker compose up -d`).
 
 Entre no site com o usuário **admin** e essa senha. O sistema pede uma senha nova no primeiro acesso. Depois, cadastre as outras pessoas na aba **Usuários**.
 
-## Rodar localmente
+## Rodar sem configurar o banco
 
-Precisa de Node.js 20+ e PostgreSQL.
+O sistema encontra o PostgreSQL sozinho. Basta ter o PostgreSQL instalado na máquina:
 
 ```bash
-createdb bts
+sudo apt install postgresql nodejs npm     # Ubuntu/Debian
 npm install
-DATABASE_URL=postgres://localhost:5432/bts ADMIN_TOKEN=SenhaInicial123 npm start
+sudo npm start
 ```
+
+Na primeira vez ele cria o usuário e o banco `bts` com uma senha aleatória, carrega a planilha, cria o usuário `admin` e mostra a senha inicial no terminal. A configuração fica salva no arquivo `.env` da pasta, e nas próximas vezes ele já sabe onde está o banco.
+
+Como o sistema procura o banco, nesta ordem:
+
+1. `DATABASE_URL`, se tiver sido informado (Render, Docker, outro servidor).
+2. Arquivo `.env` da pasta do sistema ou `/etc/bts-compress.env` (criado pelo instalador).
+3. PostgreSQL da própria máquina pelo socket local, sem senha.
+4. Se nada disso funcionar e estiver rodando como root, cria o usuário e o banco `bts` e salva em `.env`.
+
+Se não achar nenhum PostgreSQL, ele mostra o que instalar.
 
 Abra http://localhost:3000.
 
@@ -53,8 +64,8 @@ Abra http://localhost:3000.
 
 | Variável       | Uso                                                        |
 |----------------|------------------------------------------------------------|
-| `DATABASE_URL` | Conexão do PostgreSQL                                      |
-| `ADMIN_TOKEN`  | Senha inicial do usuário `admin` (usada só quando ainda não existe nenhum usuário) |
+| `DATABASE_URL` | Opcional. Conexão do PostgreSQL; sem ela o sistema procura e configura o banco sozinho |
+| `ADMIN_TOKEN`  | Opcional. Senha inicial do usuário `admin`; sem ela uma senha é gerada e mostrada no log |
 | `PGSSL`        | `true` para conectar com SSL (banco externo ao Render)     |
 | `PORT`         | Porta HTTP (o Render define sozinho)                       |
 

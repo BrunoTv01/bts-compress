@@ -8,8 +8,11 @@ if (!username || !password) { console.error('Uso: reset-password.js USUARIO NOVA
 const problem = passwordProblem(password, username);
 if (problem) { console.error(problem); process.exit(1); }
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false });
+const { resolveDatabaseUrl, sslOpt } = require('../db/connect');
+let pool;
 (async () => {
+  const { url } = await resolveDatabaseUrl();
+  pool = new pg.Pool({ connectionString: url, ssl: sslOpt() });
   const u = username.trim().toLowerCase();
   const { rows } = await pool.query('SELECT id FROM users WHERE username = $1', [u]);
   if (rows.length) {

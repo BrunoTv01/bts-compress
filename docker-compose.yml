@@ -1,7 +1,9 @@
-# BTS Compress com PostgreSQL.
-#   1. cp .env.example .env   e troque as senhas
-#   2. docker compose up -d
-#   3. abra http://IP-DO-SERVIDOR:3000
+# BTS Compress com PostgreSQL. Não precisa configurar nada:
+#   docker compose up -d
+#   docker compose logs app | grep "Senha inicial"     (senha do usuário admin)
+# Abra http://IP-DO-SERVIDOR:3000
+#
+# Opcional: crie um arquivo .env (veja .env.example) para escolher a senha inicial ou a porta.
 services:
   db:
     image: postgres:16-alpine
@@ -9,7 +11,8 @@ services:
     environment:
       POSTGRES_DB: bts
       POSTGRES_USER: bts
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD no arquivo .env}
+      # o banco não fica exposto fora do Docker; só o sistema fala com ele
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bts-rede-interna}
     volumes:
       - bts-db:/var/lib/postgresql/data
     healthcheck:
@@ -25,8 +28,9 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://bts:${DB_PASSWORD}@db:5432/bts
-      ADMIN_TOKEN: ${ADMIN_TOKEN:?Defina ADMIN_TOKEN no arquivo .env}
+      DATABASE_URL: postgres://bts:${DB_PASSWORD:-bts-rede-interna}@db:5432/bts
+      # vazio = o sistema gera uma senha para o admin e mostra no log
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
     ports:
       - "${PORT:-3000}:3000"
 

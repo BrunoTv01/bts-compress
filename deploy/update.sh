@@ -16,7 +16,7 @@ echo "→ Backup do banco antes de atualizar"
 
 if [ "$SRC_DIR" != "$APP_DIR" ]; then
   echo "→ Copiando arquivos novos"
-  rsync -a --delete --exclude node_modules --exclude .git "$SRC_DIR"/ "$APP_DIR"/
+  rsync -a --delete --exclude node_modules --exclude .git --exclude .env "$SRC_DIR"/ "$APP_DIR"/
 fi
 echo "→ Dependências"
 ( cd "$APP_DIR" && npm install --omit=dev --no-audit --no-fund --loglevel=error )

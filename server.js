@@ -9,12 +9,17 @@ const auth = require('./auth');
 // NUMERIC volta como número, não como texto
 pg.types.setTypeParser(1700, v => (v === null ? null : parseFloat(v)));
 
+const { resolveDatabaseUrl, loadEnvFiles, sslOpt } = require('./db/connect');
+loadEnvFiles(); // .env da pasta do sistema e /etc/bts-compress.env (PORT, ADMIN_TOKEN, DATABASE_URL...)
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || 'postgres://localhost:5432/bts',
-  ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
-});
+
+// O banco é descoberto na inicialização (veja db/connect.js); as rotas usam este objeto
+let realPool = null;
+const pool = {
+  query: (...a) => realPool.query(...a),
+  connect: () => realPool.connect(),
+};
 
 // Campos que podem ser editados pelo sistema: tabela -> { chave primária, colunas, tipo }
 const EDITABLE = {
@@ -301,7 +306,12 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'Erro no servidor. Tente de novo.' });
 });
 
-migrate()
+resolveDatabaseUrl()
+  .then(({ url, how }) => {
+    realPool = new pg.Pool({ connectionString: url, ssl: sslOpt() });
+    console.log(`Banco de dados: ${how}`);
+  })
+  .then(migrate)
   .then(bootstrap)
   .then(() => app.listen(PORT, HOST, () => console.log(`BTS Compress rodando em ${HOST}:${PORT}`)))
-  .catch(e => { console.error('Falha ao preparar o banco:', e); process.exit(1); });
+  .catch(e => { console.error(e.friendly ? e.message : 'Falha ao preparar o banco: ' + (e.stack || e)); process.exit(1); });

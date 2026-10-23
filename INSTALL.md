@@ -7,10 +7,11 @@ Duas formas de instalar. Escolha uma.
 | Para quem | Servidor Linux dedicado ou VM | Quem já usa Docker |
 | Sistemas | Ubuntu 22.04+, Debian 12+, Rocky/Alma/RHEL 9 | Qualquer Linux com Docker |
 | Instala | Node.js 22, PostgreSQL, serviço systemd, nginx (opcional) | Dois contêineres: sistema e PostgreSQL |
+| Configurar banco | Não: o instalador cria tudo | Não: já vem pronto |
 
 Requisitos mínimos: 1 CPU, 1 GB de RAM, 2 GB de disco e acesso à internet durante a instalação (para baixar Node.js, PostgreSQL e as duas bibliotecas do sistema).
 
-Versão atual: **1.1.0**, com login de usuários, perfis, cadastro de serviços e equipamentos, inclusão e exclusão de linhas e a tela de entrada animada.
+Versão atual: **1.2.0**, que encontra e configura o banco sozinho, com login de usuários, perfis, cadastro de serviços e equipamentos, inclusão e exclusão de linhas e a tela de entrada animada.
 
 ---
 
@@ -33,10 +34,10 @@ tar xzf bts-compress.tar.gz
 cd bts-compress-main
 ```
 
-Se o servidor não tiver acesso ao GitHub, copie o arquivo `bts-compress-1.1.0.tar.gz` para ele (por `scp` ou pendrive) e extraia:
+Se o servidor não tiver acesso ao GitHub, copie o arquivo `bts-compress-1.2.0.tar.gz` para ele (por `scp` ou pendrive) e extraia:
 
 ```bash
-tar xzf bts-compress-1.1.0.tar.gz
+tar xzf bts-compress-1.2.0.tar.gz
 cd bts-compress
 ```
 
@@ -67,7 +68,7 @@ Opções do instalador:
 | `--porta N` | Porta do sistema (padrão 3000) |
 | `--nginx` | Publica na porta 80 através do nginx. O sistema passa a aceitar conexões só pelo nginx |
 | `--dominio nome` | Nome do servidor no nginx, por exemplo `bts.cultura.local` |
-| `--sem-banco` | Usa um PostgreSQL que já existe. Defina `DATABASE_URL` antes de rodar |
+| `--sem-banco` | Usa um PostgreSQL de outro servidor. Defina `DATABASE_URL` antes de rodar |
 
 Exemplos:
 
@@ -136,24 +137,24 @@ Os backups em `/var/backups/bts-compress` nunca são apagados.
 
 ## Opção B: Docker
 
-Requer Docker e o plugin `docker compose`.
+Requer Docker e o plugin `docker compose`. Não precisa configurar banco nem senhas.
 
 ```bash
 git clone https://github.com/BrunoTv01/bts-compress.git
 cd bts-compress
-cp .env.example .env
-nano .env                  # troque DB_PASSWORD e ADMIN_TOKEN (senha inicial do admin)
 docker compose up -d --build
+docker compose logs app | grep "Senha inicial"     # senha do usuário admin
 ```
 
-Abra `http://IP-DO-SERVIDOR:3000` e entre com o usuário `admin` e a senha que você pôs em `ADMIN_TOKEN`.
+Abra `http://IP-DO-SERVIDOR:3000` e entre com o usuário `admin` e essa senha. O sistema pede uma senha nova no primeiro acesso.
 
-Para recuperar o acesso: `docker compose exec app node tools/reset-password.js admin NovaSenha123`.
+Se quiser escolher a senha inicial ou a porta, copie `.env.example` para `.env` e preencha antes do `up`.
 
 ```bash
 docker compose logs -f app                                              # log
 docker compose exec db pg_dump -U bts bts | gzip > bts-backup.sql.gz    # backup
 git pull && docker compose up -d --build                                # atualizar
+docker compose exec app node tools/reset-password.js admin NovaSenha123 # recuperar acesso
 ```
 
 Os dados ficam no volume `bts-db` e não se perdem ao atualizar ou reiniciar.
@@ -170,6 +171,6 @@ Os dados ficam no volume `bts-db` e não se perdem ao atualizar ou reiniciar.
 
 **Usar HTTPS.** Recomendado se o sistema for acessado fora da rede interna. Com `--nginx` instalado, rode `sudo apt install certbot python3-certbot-nginx && sudo certbot --nginx -d seu.dominio`. O cookie de login passa a ser marcado como seguro automaticamente.
 
-**O serviço não sobe.** Rode `sudo journalctl -u bts-compress -n 50`. A causa mais comum é o PostgreSQL parado: `sudo systemctl start postgresql`.
+**O serviço não sobe.** Rode `sudo journalctl -u bts-compress -n 50`. A primeira linha diz qual banco ele encontrou, ou o que falta. A causa mais comum é o PostgreSQL parado: `sudo systemctl start postgresql`.
 
 **A porta 3000 já está em uso.** Reinstale com outra porta: edite `PORT` em `/etc/bts-compress.env` e reinicie o serviço.

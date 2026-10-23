@@ -103,7 +103,7 @@ fi
 # ---------- usuário e arquivos ----------
 id "$APP_USER" >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /usr/sbin/nologin "$APP_USER"
 mkdir -p "$APP_DIR"
-rsync -a --delete --exclude node_modules --exclude .git "$SRC_DIR"/ "$APP_DIR"/
+rsync -a --delete --exclude node_modules --exclude .git --exclude .env "$SRC_DIR"/ "$APP_DIR"/
 info "Instalando dependências do sistema (npm)"
 ( cd "$APP_DIR" && npm install --omit=dev --no-audit --no-fund --loglevel=error )
 chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
