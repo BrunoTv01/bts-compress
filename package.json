@@ -1,6 +1,6 @@
 {
   "name": "bts-compress",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Sistema do estudo BTS Compress: serviços, PIDs e bitrates DVB/ISDB-T com banco PostgreSQL",
   "main": "server.js",
   "scripts": {

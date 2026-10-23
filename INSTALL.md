@@ -8,7 +8,9 @@ Duas formas de instalar. Escolha uma.
 | Sistemas | Ubuntu 22.04+, Debian 12+, Rocky/Alma/RHEL 9 | Qualquer Linux com Docker |
 | Instala | Node.js 22, PostgreSQL, serviço systemd, nginx (opcional) | Dois contêineres: sistema e PostgreSQL |
 
-Requisitos mínimos: 1 CPU, 1 GB de RAM, 2 GB de disco e acesso à internet durante a instalação.
+Requisitos mínimos: 1 CPU, 1 GB de RAM, 2 GB de disco e acesso à internet durante a instalação (para baixar Node.js, PostgreSQL e as duas bibliotecas do sistema).
+
+Versão atual: **1.1.0**, com login de usuários, perfis, cadastro de serviços e equipamentos, inclusão e exclusão de linhas e a tela de entrada animada.
 
 ---
 
@@ -23,12 +25,15 @@ git clone https://github.com/BrunoTv01/bts-compress.git
 cd bts-compress
 ```
 
-Ou envie o arquivo `bts-compress.tar.gz` para o servidor e extraia:
+Ou baixe a versão pronta (não precisa de git):
 
 ```bash
-tar xzf bts-compress.tar.gz
+curl -LO https://github.com/BrunoTv01/bts-compress/releases/download/v1.1.0/bts-compress-1.1.0.tar.gz
+tar xzf bts-compress-1.1.0.tar.gz
 cd bts-compress
 ```
+
+Se o servidor não tiver acesso ao GitHub, copie o arquivo `bts-compress-1.1.0.tar.gz` para ele (por `scp` ou pendrive) e extraia do mesmo jeito.
 
 ### 2. Rode o instalador
 
@@ -110,6 +115,8 @@ sudo ./deploy/update.sh
 ```
 
 O `update.sh` faz backup do banco, copia os arquivos novos e reinicia. Mudanças na estrutura do banco são aplicadas sozinhas, sem perder dados.
+
+**Vindo de uma versão sem login (1.0):** depois do `update.sh`, a tela de login aparece. Entre com o usuário `admin` e a mesma senha que você usava para editar (a do `--senha` da instalação). O sistema pede uma senha nova e, a partir daí, você cadastra as outras pessoas na aba **Usuários**. Para ver a senha antiga: `sudo grep ADMIN_TOKEN /etc/bts-compress.env`.
 
 ### Desinstalar
 
