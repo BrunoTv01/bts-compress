@@ -16,7 +16,18 @@ Sistema web do estudo **BTS Compress (03/08/2026)**: serviços, PIDs e bitrates 
 
 Os totais, sobras e percentuais são recalculados a partir do banco a cada edição.
 
-## Rodar no Render (recomendado)
+## Instalar em servidor Linux
+
+Veja **[INSTALL.md](INSTALL.md)**. Resumo:
+
+```bash
+git clone https://github.com/BrunoTv01/bts-compress.git && cd bts-compress
+sudo ./deploy/install.sh --senha SuaSenha
+```
+
+Também há uma opção com Docker (`docker compose up -d`).
+
+## Rodar no Render
 
 1. No Render, clique em **New → Blueprint** e escolha este repositório.
 2. O `render.yaml` cria o serviço web e o banco PostgreSQL gratuitos.

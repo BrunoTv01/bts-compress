@@ -9,6 +9,7 @@ const { seed } = require('./db/seed');
 pg.types.setTypeParser(1700, v => (v === null ? null : parseFloat(v)));
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 // Remove espaços, quebras de linha e aspas que às vezes vêm junto ao colar a senha no painel
 const ADMIN_TOKEN = (process.env.ADMIN_TOKEN || '').trim().replace(/^["']|["']$/g, '');
 const sha = s => crypto.createHash('sha256').update(String(s), 'utf8').digest();
@@ -302,8 +303,8 @@ app.use((err, _req, res, _next) => {
 });
 
 migrate()
-  .then(() => app.listen(PORT, () => {
-    console.log(`BTS Compress rodando na porta ${PORT}`);
+  .then(() => app.listen(PORT, HOST, () => {
+    console.log(`BTS Compress rodando em ${HOST}:${PORT}`);
     console.log(ADMIN_TOKEN ? `Senha de edição configurada (${ADMIN_TOKEN.length} caracteres).` : 'ADMIN_TOKEN vazio: edição desativada.');
   }))
   .catch(e => { console.error('Falha ao preparar o banco:', e); process.exit(1); });

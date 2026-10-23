@@ -1,0 +1,24 @@
+[Unit]
+Description=BTS Compress (serviços, PIDs e bitrates DVB/ISDB-T)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bts
+Group=bts
+WorkingDirectory=/opt/bts-compress
+EnvironmentFile=/etc/bts-compress.env
+ExecStart=/usr/bin/env node server.js
+Restart=always
+RestartSec=5
+
+# Proteções
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/bts-compress
+
+[Install]
+WantedBy=multi-user.target
