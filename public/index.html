@@ -167,8 +167,13 @@ footer .wrap{padding-block:20px;display:flex;gap:16px;flex-wrap:wrap;justify-con
 @media (prefers-reduced-motion:reduce){td.saved{animation:none}}
 
 /* login */
-.authwrap{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:var(--bg);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}
-.authcard{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px 28px 22px;box-shadow:0 12px 40px rgba(10,20,30,.08)}
+/* Fundo do login: cadeia de uplink (serviços -> mux TS -> antena -> satélite), sempre escuro */
+.authwrap{position:fixed;inset:0;z-index:30;display:grid;grid-template-columns:1fr minmax(0,440px);align-items:center;background:#06111a;color-scheme:dark;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}
+#authBg{position:fixed;inset:0;width:100%;height:100%;display:block}
+.authside{position:relative;align-self:end;justify-self:start;margin:0 0 3vh 3vw;color:#8fb3c4;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;line-height:1.7;pointer-events:none}
+.authside b{display:block;font-family:var(--display);font-size:clamp(26px,3.2vw,40px);letter-spacing:.01em;text-transform:none;color:#e9f3f6;font-weight:600;line-height:1.1;margin-bottom:6px}
+.authcard{position:relative;grid-column:2;width:100%;max-width:400px;justify-self:center;margin-right:2vw;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px 28px 22px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+@media (max-width:860px){.authwrap{grid-template-columns:1fr;place-items:center}.authside{display:none}.authcard{grid-column:1;margin:0}}
 .authbrand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:20px;margin-bottom:18px}
 .authbrand img{height:30px;width:auto}
 .authcard h1{font-size:24px;margin:0 0 16px}
@@ -237,6 +242,8 @@ table.users tr.off td{opacity:.6}
 </header>
 
 <div class="authwrap" id="authScreen" hidden>
+  <canvas id="authBg" aria-hidden="true"></canvas>
+  <div class="authside" aria-hidden="true"><b>Do encoder ao satélite</b>Transport stream · DVB-S2 · uplink</div>
   <div class="authcard">
     <div class="authbrand"><img src="/logo.png" alt="" onerror="this.hidden=true"><span>BTS Compress</span></div>
     <form id="loginForm" autocomplete="on">
@@ -684,20 +691,146 @@ $("app").addEventListener("submit",async e=>{if(e.target.id!=="userForm")return;
     const box=`Usuário <b>@${esc(b.username.trim().toLowerCase())}</b> criado. Senha provisória: <code>${esc(b.password)}</code>`;
     await reloadUsers("Usuário criado");$("resetBox").hidden=false;$("resetBox").innerHTML=box+"<span>Passe o usuário e a senha para a pessoa. Ela cria uma senha própria no primeiro acesso.</span>"}
   catch(err){$("nuMsg").textContent=err.message}},true);
+/* ===== Fundo animado do login: sinal BTS comprimido subindo para o satélite ===== */
+const uplinkBg=(()=>{
+  const cv=document.getElementById("authBg"),ctx=cv.getContext("2d");
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // serviços que entram no mux: nome, cor, taxa relativa (mais pacotes = mais bitrate)
+  const LANES=[["VÍDEO HD","#2dd4bf",5.6],["VÍDEO SD","#60a5fa",2.1],["ÁUDIO","#fbbf24",0.6],["1SEG","#a78bfa",0.4],["PSI/SI · EPG","#f472b6",0.25],["PCR","#94a3b8",0.2]];
+  let W=0,H=0,dpr=1,raf=0,t0=0,packets=[],tsq=[],beam=[],last=0;
+  function size(){dpr=Math.min(2,window.devicePixelRatio||1);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+  // geometria em função da tela; no celular o desenho ocupa a largura toda
+  function geo(){
+    const wide=W>860,span=wide?W-460:W;
+    const x0=span*0.04,mux={x:span*0.40,y:H*0.60},dish={x:span*0.70,y:H*0.86},sat={x:span*0.80,y:H*0.17};
+    const laneY=i=>H*0.40+i*(H*0.075);
+    return {x0,mux,dish,sat,laneY,span};
+  }
+  function spawn(g,now){
+    LANES.forEach(([,c,rate],i)=>{if(Math.random()<rate*0.022)packets.push({lane:i,x:g.x0+40,c,born:now})});
+  }
+  function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,h,r):ctx.rect(x,y,w,h)}
+  function drawStatic(g){
+    // fundo: gradiente e grade fina
+    const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,"#04101a");bg.addColorStop(1,"#0a1d29");ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle="rgba(120,170,190,.06)";ctx.lineWidth=1;
+    for(let x=0;x<W;x+=48){ctx.beginPath();ctx.moveTo(x+.5,0);ctx.lineTo(x+.5,H);ctx.stroke()}
+    for(let y=0;y<H;y+=48){ctx.beginPath();ctx.moveTo(0,y+.5);ctx.lineTo(W,y+.5);ctx.stroke()}
+    // arco da órbita geoestacionária
+    ctx.strokeStyle="rgba(143,179,196,.18)";ctx.setLineDash([3,7]);ctx.beginPath();
+    ctx.ellipse(g.sat.x,g.sat.y+H*1.25,W*0.9,H*1.25,0,Math.PI*1.12,Math.PI*1.88);ctx.stroke();ctx.setLineDash([]);
+    // trilhas dos serviços até o mux
+    ctx.font="600 10px 'IBM Plex Mono',monospace";ctx.textBaseline="middle";
+    LANES.forEach(([n,c],i)=>{const y=g.laneY(i);
+      ctx.fillStyle=c;ctx.globalAlpha=.85;ctx.fillText(n,g.x0,y-11);ctx.globalAlpha=1;
+      ctx.strokeStyle="rgba(143,179,196,.16)";ctx.beginPath();ctx.moveTo(g.x0,y);
+      ctx.bezierCurveTo(g.mux.x*0.62,y,g.mux.x*0.78,g.mux.y,g.mux.x-34,g.mux.y);ctx.stroke()});
+    // bloco do multiplexador
+    ctx.fillStyle="#0e2a38";ctx.strokeStyle="rgba(45,212,191,.55)";rr(g.mux.x-34,g.mux.y-30,68,60,6);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#d7ecf2";ctx.font="600 11px 'IBM Plex Mono',monospace";ctx.textAlign="center";ctx.fillText("MUX",g.mux.x,g.mux.y-8);
+    ctx.fillStyle="#8fb3c4";ctx.font="10px 'IBM Plex Mono',monospace";ctx.fillText("TS 188 B",g.mux.x,g.mux.y+9);
+    // caminho do TS até a antena
+    ctx.strokeStyle="rgba(45,212,191,.22)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(g.mux.x+34,g.mux.y);
+    ctx.bezierCurveTo(g.mux.x+120,g.mux.y,g.dish.x-140,g.dish.y,g.dish.x-24,g.dish.y);ctx.stroke();ctx.lineWidth=1;
+    ctx.fillStyle="#8fb3c4";ctx.fillText("BTS · 32,297 Mbps",(g.mux.x+g.dish.x)/2,(g.mux.y+g.dish.y)/2+22);
+    // antena de uplink
+    // antena parabólica apontada para o satélite
+    const aim=Math.atan2(g.sat.y-g.dish.y,g.sat.x-g.dish.x);
+    ctx.save();ctx.translate(g.dish.x,g.dish.y);ctx.strokeStyle="#cfe3ea";ctx.lineWidth=2;ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(0,4);ctx.lineTo(-6,28);ctx.moveTo(0,4);ctx.lineTo(6,28);ctx.moveTo(-14,28);ctx.lineTo(14,28);ctx.stroke();
+    ctx.rotate(aim+Math.PI/2);
+    ctx.fillStyle="#1d3b4b";ctx.beginPath();ctx.moveTo(-26,-4);ctx.quadraticCurveTo(0,22,26,-4);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(0,-24);ctx.lineTo(20,0);ctx.stroke();
+    ctx.fillStyle="#2dd4bf";ctx.beginPath();ctx.arc(0,-25,3.2,0,7);ctx.fill();ctx.restore();
+    ctx.fillStyle="#8fb3c4";ctx.textAlign="center";ctx.fillText("UPLINK",g.dish.x,g.dish.y+42);
+    // satélite
+    ctx.save();ctx.translate(g.sat.x,g.sat.y);ctx.rotate(-0.25);
+    ctx.fillStyle="#1d3b4b";ctx.strokeStyle="#7aa7b8";ctx.lineWidth=1;
+    for(const s of[-1,1]){rr(s*22-(s<0?44:0),-9,44,18,2);ctx.fill();ctx.stroke();
+      ctx.strokeStyle="rgba(122,167,184,.5)";for(let k=1;k<4;k++){const xx=s*22+(s<0?-44:0)+k*11;ctx.beginPath();ctx.moveTo(xx,-9);ctx.lineTo(xx,9);ctx.stroke()}ctx.strokeStyle="#7aa7b8"}
+    ctx.fillStyle="#d7ecf2";rr(-14,-14,28,28,4);ctx.fill();ctx.fillStyle="#0e2a38";ctx.beginPath();ctx.arc(0,18,7,0,Math.PI);ctx.fill();ctx.restore();
+    ctx.fillStyle="#8fb3c4";ctx.fillText("SATÉLITE · GEO",g.sat.x,g.sat.y+44);
+  }
+  function drawConstellation(g,now){
+    // 8PSK com ruído: cada ponto treme em volta do símbolo ideal
+    const cx=g.span*0.15,cy=H*0.15,r=Math.min(46,H*0.06);
+    ctx.strokeStyle="rgba(143,179,196,.25)";ctx.beginPath();ctx.moveTo(cx-r-14,cy);ctx.lineTo(cx+r+14,cy);ctx.moveTo(cx,cy-r-14);ctx.lineTo(cx,cy+r+14);ctx.stroke();
+    ctx.setLineDash([2,4]);ctx.beginPath();ctx.arc(cx,cy,r,0,7);ctx.stroke();ctx.setLineDash([]);
+    for(let k=0;k<8;k++){const a=k*Math.PI/4+Math.PI/8;
+      for(let j=0;j<6;j++){const n=reduce?0:Math.sin(now/600+k*3+j*7)*3+Math.cos(now/470+j*11)*2;
+        ctx.fillStyle="rgba(45,212,191,"+(0.35+j*0.1)+")";ctx.beginPath();ctx.arc(cx+Math.cos(a)*r+n,cy+Math.sin(a)*r+n*0.7,1.6,0,7);ctx.fill()}}
+    ctx.fillStyle="#8fb3c4";ctx.font="10px 'IBM Plex Mono',monospace";ctx.textAlign="center";ctx.fillText("DVB-S2 · 8PSK 3/4",cx,cy+r+28);
+  }
+  function drawSpectrum(g,now){
+    // portadora vista no analisador: topo plano com roll-off e piso de ruído
+    const x1=g.span*0.30,x2=g.span*0.62,base=H*0.21,top=H*0.11;
+    ctx.beginPath();ctx.moveTo(x1,base);
+    for(let x=x1;x<=x2;x+=3){const u=(x-x1)/(x2-x1);const edge=Math.min(1,Math.max(0,(Math.min(u,1-u)-0.08)/0.1));
+      const noise=(reduce?0:Math.sin(x*0.9+now/90)*1.2+Math.sin(x*0.37+now/140)*1.5);
+      ctx.lineTo(x,base-(base-top)*edge-noise-3)}
+    ctx.lineTo(x2,base);ctx.closePath();
+    ctx.strokeStyle="rgba(143,179,196,.25)";ctx.beginPath();ctx.moveTo(x1-10,base+.5);ctx.lineTo(x2+10,base+.5);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x1,base);
+    for(let x=x1;x<=x2;x+=3){const u=(x-x1)/(x2-x1);const edge=Math.min(1,Math.max(0,(Math.min(u,1-u)-0.08)/0.1));
+      const noise=(reduce?0:Math.sin(x*0.9+now/90)*1.2+Math.sin(x*0.37+now/140)*1.5);ctx.lineTo(x,base-(base-top)*edge-noise-3)}
+    ctx.lineTo(x2,base);ctx.closePath();const gr=ctx.createLinearGradient(0,top,0,base);gr.addColorStop(0,"rgba(45,212,191,.35)");gr.addColorStop(1,"rgba(45,212,191,0)");ctx.fillStyle=gr;ctx.fill();
+    ctx.strokeStyle="rgba(45,212,191,.7)";ctx.stroke();
+    ctx.fillStyle="#8fb3c4";ctx.textAlign="right";ctx.fillText("PORTADORA · 30 Msym/s",x2,base+16);ctx.textAlign="center";
+  }
+  function bez(p0,p1,p2,p3,t){const u=1-t;return u*u*u*p0+3*u*u*t*p1+3*u*t*t*p2+t*t*t*p3}
+  function frame(now){
+    const dt=Math.min(50,now-(last||now));last=now;
+    if(cv.clientWidth!==W||cv.clientHeight!==H)size();
+    const g=geo();drawStatic(g);drawConstellation(g,now);drawSpectrum(g,now);
+    if(!reduce)spawn(g,now);
+    // pacotes de cada serviço seguindo a trilha até o mux
+    for(const p of packets){p.t=(p.t||0)+dt*0.00042;const y=g.laneY(p.lane);
+      const t=Math.min(1,p.t),x=bez(g.x0,g.mux.x*0.62,g.mux.x*0.78,g.mux.x-34,t),yy=bez(y,y,g.mux.y,g.mux.y,t);
+      ctx.fillStyle=p.c;ctx.globalAlpha=0.9;ctx.fillRect(x-4,yy-3,8,6);ctx.globalAlpha=1;
+      if(t>=1){p.done=true;tsq.push({t:0,c:p.c})}}
+    packets=packets.filter(p=>!p.done);
+    // TS multiplexado: pacotes enfileirados, mesma cor do serviço de origem
+    for(const q of tsq){q.t+=dt*0.00055;const x=bez(g.mux.x+34,g.mux.x+120,g.dish.x-140,g.dish.x-24,q.t),y=bez(g.mux.y,g.mux.y,g.dish.y,g.dish.y,q.t);
+      ctx.fillStyle=q.c;ctx.fillRect(x-5,y-3,10,6);if(q.t>=1){q.done=true;beam.push({t:0})}}
+    tsq=tsq.filter(q=>!q.done);
+    // feixe de uplink: frentes de onda subindo até o satélite
+    const aimB=Math.atan2(g.sat.y-g.dish.y,g.sat.x-g.dish.x),bx=g.dish.x+Math.cos(aimB)*25,by=g.dish.y+Math.sin(aimB)*25;
+    ctx.strokeStyle="rgba(45,212,191,.12)";ctx.lineWidth=14;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(g.sat.x,g.sat.y+20);ctx.stroke();ctx.lineWidth=1;
+    for(const b of beam){b.t+=dt*0.0009;const x=bx+(g.sat.x-bx)*b.t,y=by+(g.sat.y+20-by)*b.t;
+      ctx.strokeStyle="rgba(94,234,212,"+(0.9-b.t*0.6)+")";ctx.lineWidth=2;ctx.beginPath();
+      const ang=Math.atan2(g.sat.y-by,g.sat.x-bx)+Math.PI/2;ctx.arc(x,y,8,ang-0.9+Math.PI,ang+0.9+Math.PI);ctx.stroke();ctx.lineWidth=1;if(b.t>=1)b.done=true}
+    beam=beam.filter(b=>!b.done);
+    // contador de pacotes TS
+    ctx.fillStyle="#5e8a9c";ctx.textAlign="left";ctx.font="10px 'IBM Plex Mono',monospace";
+    if(!reduce)ctx.fillText("CC "+String(Math.floor(now/90)%16).padStart(2,"0")+" · PID 0x"+(0x100+Math.floor(now/700)%8*0x10).toString(16).toUpperCase(),g.x0,H*0.40-34);
+    if(!reduce)raf=requestAnimationFrame(frame);
+  }
+  function seedStatic(){ // pacotes já no caminho, para o quadro parado (movimento reduzido) não ficar vazio
+    const g=geo();LANES.forEach(([,c],i)=>{for(let k=0;k<4;k++)packets.push({lane:i,c,t:k*0.22+i*0.03})});
+    for(let k=0;k<9;k++)tsq.push({t:k*0.11,c:LANES[k%LANES.length][1]});for(let k=0;k<4;k++)beam.push({t:k*0.24});
+  }
+  return {
+    start(){if(raf)return;size();if(!packets.length)seedStatic();last=0;
+      if(reduce){frame(performance.now());raf=-1}else raf=requestAnimationFrame(frame)},
+    stop(){if(raf>0)cancelAnimationFrame(raf);raf=0},
+    resize(){if(raf){size();if(reduce)frame(performance.now())}}
+  };
+})();
+window.addEventListener("resize",()=>uplinkBg.resize());
 /* ===== Login ===== */
 let ME=null;
 function showLogin(msg){
   ME=null;$("userMenu").hidden=true;$("editBtn").hidden=true;
-  $("authScreen").hidden=false;$("loginForm").hidden=false;$("pwForm").hidden=true;
+  $("authScreen").hidden=false;$("loginForm").hidden=false;$("pwForm").hidden=true;uplinkBg.start();
   $("lgErr").textContent=msg||"";$("lgPass").value="";setTimeout(()=>($("lgUser").value?$("lgPass"):$("lgUser")).focus(),50);
 }
 function showPassword(forced){
-  $("authScreen").hidden=false;$("loginForm").hidden=true;$("pwForm").hidden=false;$("pwForm").dataset.forced=forced?"1":"";
+  $("authScreen").hidden=false;uplinkBg.start();$("loginForm").hidden=true;$("pwForm").hidden=false;$("pwForm").dataset.forced=forced?"1":"";
   $("pwTitle").textContent=forced?"Crie sua senha":"Trocar senha";
   $("pwHint").textContent=forced?"Primeiro acesso ou senha redefinida: escolha uma senha só sua para continuar.":"A nova senha passa a valer agora. Outros acessos abertos com o seu usuário são encerrados.";
   $("pwCancel").hidden=!!forced;$("pwErr").textContent="";["pwCur","pwNew","pwNew2"].forEach(id=>$(id).value="");checkRules();setTimeout(()=>$("pwCur").focus(),50);
 }
-function hideAuth(){$("authScreen").hidden=true}
+function hideAuth(){$("authScreen").hidden=true;uplinkBg.stop()}
 function initials(n){return String(n||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}
 async function start(user){
   ME=user;hideAuth();
