@@ -28,12 +28,17 @@ cd bts-compress
 Ou baixe a versão pronta (não precisa de git):
 
 ```bash
-curl -LO https://github.com/BrunoTv01/bts-compress/releases/download/v1.1.0/bts-compress-1.1.0.tar.gz
+curl -L -o bts-compress.tar.gz https://github.com/BrunoTv01/bts-compress/archive/refs/heads/main.tar.gz
+tar xzf bts-compress.tar.gz
+cd bts-compress-main
+```
+
+Se o servidor não tiver acesso ao GitHub, copie o arquivo `bts-compress-1.1.0.tar.gz` para ele (por `scp` ou pendrive) e extraia:
+
+```bash
 tar xzf bts-compress-1.1.0.tar.gz
 cd bts-compress
 ```
-
-Se o servidor não tiver acesso ao GitHub, copie o arquivo `bts-compress-1.1.0.tar.gz` para ele (por `scp` ou pendrive) e extraia do mesmo jeito.
 
 ### 2. Rode o instalador
 
