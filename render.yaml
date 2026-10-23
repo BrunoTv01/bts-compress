@@ -15,7 +15,7 @@ services:
           name: bts-compress-db
           property: connectionString
       - key: ADMIN_TOKEN
-        sync: false   # senha definida manualmente no painel do Render
+        sync: false   # senha inicial do usuário admin, definida no painel do Render
 
 databases:
   - name: bts-compress-db

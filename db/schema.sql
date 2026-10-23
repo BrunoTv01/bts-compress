@@ -112,3 +112,31 @@ WHERE r.equipment IS NOT NULL AND r.equipment_id IS NULL;
 
 -- Equipamento usado por serviço ISDB-T
 ALTER TABLE isdb_layers ADD COLUMN IF NOT EXISTS equipment_id INTEGER REFERENCES equipment(id) ON DELETE SET NULL;
+
+-- Usuários e sessões (login)
+CREATE TABLE IF NOT EXISTS users (
+  id             SERIAL PRIMARY KEY,
+  username       TEXT NOT NULL UNIQUE,
+  name           TEXT NOT NULL,
+  role           TEXT NOT NULL CHECK (role IN ('viewer','editor','admin')),
+  password_hash  TEXT NOT NULL,
+  active         BOOLEAN NOT NULL DEFAULT true,
+  must_change    BOOLEAN NOT NULL DEFAULT false,
+  last_login     TIMESTAMPTZ,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash  TEXT NOT NULL UNIQUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at  TIMESTAMPTZ NOT NULL,
+  ip          TEXT,
+  user_agent  TEXT
+);
+CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
+
+-- Quem fez cada alteração
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS username TEXT;

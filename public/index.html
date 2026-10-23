@@ -135,6 +135,7 @@ td.nm:hover .pen{color:var(--accent)}
 .eqgrid label{display:grid;gap:4px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .eqgrid input{font:inherit;font-size:14px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
 .eqgrid .wide{grid-column:1/-1}
+.eqgrid select{font:inherit;font-size:14px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0;width:100%}
 .eqactions{display:flex;gap:12px;align-items:center;margin-top:14px}
 .eqactions .msg{color:var(--bad);font-size:14px}
 select.cell.text{font:inherit;font-size:13.5px;color:var(--fg);background:var(--bg);border:1px solid var(--accent);border-radius:4px;padding:4px 6px;width:100%;min-width:180px}
@@ -164,6 +165,53 @@ footer{border-top:1px solid var(--line);background:var(--surface)}
 footer .wrap{padding-block:20px;display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;color:var(--muted);font-size:13px}
 @media (max-width:640px){.count{margin-left:0;flex-basis:100%}}
 @media (prefers-reduced-motion:reduce){td.saved{animation:none}}
+
+/* login */
+.authwrap{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:var(--bg);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow:auto}
+.authcard{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px 28px 22px;box-shadow:0 12px 40px rgba(10,20,30,.08)}
+.authbrand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:20px;margin-bottom:18px}
+.authbrand img{height:30px;width:auto}
+.authcard h1{font-size:24px;margin:0 0 16px}
+.authcard form{display:grid;gap:12px}
+.authcard label{display:grid;gap:5px;font-size:13px;font-weight:600;color:var(--muted)}
+.authcard input{font:inherit;font-size:15px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:10px 12px;width:100%;min-width:0}
+.authcard input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.pwfield{position:relative;display:block}
+.pwfield input{padding-right:78px}
+.eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);font:inherit;font-size:12px;font-weight:600;color:var(--accent);background:none;border:0;padding:6px 8px;cursor:pointer;border-radius:5px}
+.eqgrid .pwfield input{padding-right:70px}
+.btn.big{padding:11px 16px;font-size:15px;width:100%}
+.authcard .row{display:flex;gap:8px}.authcard .row .btn:first-child{flex:1}
+.err{margin:0;min-height:1.2em;color:var(--bad);font-size:14px}
+.caps{margin:-4px 0 0;color:var(--warn);font-size:13px}
+.hint{margin:0;color:var(--muted);font-size:13px}
+.meter{height:5px;background:var(--bg);border-radius:3px;overflow:hidden;margin-top:-4px}
+.meter i{display:block;height:100%;width:0;transition:width .2s}
+.meter i.weak{background:var(--bad)}.meter i.mid{background:var(--warn)}.meter i.strong{background:var(--ok)}
+.rules{list-style:none;margin:-2px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
+.rules li::before{content:"○ ";}.rules li.ok{color:var(--ok)}.rules li.ok::before{content:"✓ "}
+/* menu do usuário */
+.usermenu{position:relative}
+.userbtn{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 4px}
+.avatar{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-size:12px;font-weight:700;flex:0 0 auto}
+.avatar.sm{width:30px;height:30px}
+.uname{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:220px;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(10,20,30,.12);padding:6px;display:grid}
+.menuhead{display:grid;gap:4px;padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.menuhead .chip{justify-self:start}.menuhead small{color:var(--muted)}
+.menu>button{font:inherit;font-size:14px;text-align:left;background:none;border:0;color:var(--fg);padding:9px 10px;border-radius:6px;cursor:pointer}
+.menu>button:hover{background:var(--bg)}
+/* usuários */
+table.users td{white-space:nowrap}
+th.plain{padding:10px 12px}
+table.users tr.off td{opacity:.6}
+.acts{display:flex;gap:6px;justify-content:flex-end}
+.rolesel{font:inherit;font-size:14px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+.chip.c-off{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.resetbox{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:var(--warn-bg);color:var(--fg);border-radius:8px;padding:12px 14px;margin:0 0 12px;font-size:14px}
+.resetbox code{font-family:var(--mono);font-size:15px;background:var(--surface);padding:3px 8px;border-radius:5px;user-select:all}
+.resetbox span{flex-basis:100%;color:var(--muted);font-size:13px}
+@media (max-width:640px){.uname{display:none}}
 </style>
 </head>
 <body>
@@ -177,15 +225,44 @@ footer .wrap{padding-block:20px;display:flex;gap:16px;flex-wrap:wrap;justify-con
     <span class="spacer"></span>
     <button class="btn" id="editBtn" type="button" hidden>Editar valores</button>
     <button class="btn" id="themeBtn" type="button">Tema</button>
+    <div class="usermenu" id="userMenu" hidden>
+      <button class="btn userbtn" id="userBtn" type="button" aria-haspopup="true" aria-expanded="false"><span class="avatar" id="userAvatar"></span><span class="uname" id="userName"></span></button>
+      <div class="menu" id="userDrop" hidden>
+        <div class="menuhead"><b id="menuName"></b><span id="menuRole" class="chip c-acc"></span><small id="menuUser"></small></div>
+        <button type="button" id="pwBtn">Trocar senha</button>
+        <button type="button" id="logoutBtn">Sair</button>
+      </div>
+    </div>
   </div>
-  <form class="wrap login" id="login" hidden>
-    <label for="token">Senha de edição</label>
-    <input id="token" type="password" autocomplete="current-password" placeholder="ADMIN_TOKEN do servidor">
-    <button class="btn primary" type="submit">Entrar</button>
-    <button class="btn" type="button" id="loginCancel">Cancelar</button>
-    <span class="msg" id="loginMsg"></span>
-  </form>
 </header>
+
+<div class="authwrap" id="authScreen" hidden>
+  <div class="authcard">
+    <div class="authbrand"><img src="/logo.png" alt="" onerror="this.hidden=true"><span>BTS Compress</span></div>
+    <form id="loginForm" autocomplete="on">
+      <h1>Entrar</h1>
+      <label>Usuário<input id="lgUser" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+      <label>Senha
+        <span class="pwfield"><input id="lgPass" name="password" type="password" autocomplete="current-password" required><button type="button" class="eye" data-eye="lgPass" aria-label="Mostrar senha">mostrar</button></span>
+      </label>
+      <p class="caps" id="lgCaps" hidden>Caps Lock está ligado.</p>
+      <p class="err" id="lgErr" role="alert"></p>
+      <button class="btn primary big" type="submit" id="lgBtn">Entrar</button>
+      <p class="hint">Esqueceu a senha? Peça para um administrador redefinir.</p>
+    </form>
+    <form id="pwForm" hidden autocomplete="off">
+      <h1 id="pwTitle">Trocar senha</h1>
+      <p class="hint" id="pwHint"></p>
+      <label>Senha atual<span class="pwfield"><input id="pwCur" type="password" autocomplete="current-password" required><button type="button" class="eye" data-eye="pwCur" aria-label="Mostrar senha">mostrar</button></span></label>
+      <label>Nova senha<span class="pwfield"><input id="pwNew" type="password" autocomplete="new-password" required><button type="button" class="eye" data-eye="pwNew" aria-label="Mostrar senha">mostrar</button></span></label>
+      <div class="meter" aria-hidden="true"><i id="pwMeter"></i></div>
+      <ul class="rules" id="pwRules"><li data-r="len">Pelo menos 8 caracteres</li><li data-r="mix">Letras e números</li><li data-r="user">Sem o nome de usuário</li></ul>
+      <label>Repita a nova senha<input id="pwNew2" type="password" autocomplete="new-password" required></label>
+      <p class="err" id="pwErr" role="alert"></p>
+      <div class="row"><button class="btn primary big" type="submit">Salvar nova senha</button><button class="btn" type="button" id="pwCancel">Cancelar</button></div>
+    </form>
+  </div>
+</div>
 
 <main>
   <div class="wrap">
@@ -210,8 +287,6 @@ const svcCell=n=>`<span class="svc"><span class="dot" style="background:${col(n)
 const delta=d=>d==null?"—":d===0?"0":`<span class="${d>0?"up":"down"}">${d>0?"+":""}${nf.format(d)}</span>`;
 const pct=(a,b)=>nf.format(r3(a/b*100).toFixed(1)*1);
 const card=(k,v,unit,s,cls="")=>`<div class="card ${cls}"><span class="k">${k}</span><span class="v">${v}<small>${unit||""}</small></span>${s?`<span class="s">${s}</span>`:""}</div>`;
-function getToken(){try{return localStorage.getItem("bts_token")||""}catch{return ""}}
-function setToken(t){try{t?localStorage.setItem("bts_token",t):localStorage.removeItem("bts_token")}catch{}}
 function toast(msg,err){const t=document.createElement("div");t.className="toast"+(err?" err":"");t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 
 function usageBar(title,items,total){
@@ -223,7 +298,7 @@ function usageBar(title,items,total){
 function freeCard(label,free,cls){return card(label,nf.format(r3(free)),"Mbps",free<0?"Capacidade excedida":"",free<0?"bad":cls)}
 
 /* ===== Estado ===== */
-let D=null,view="pids",taxMode="enc",sorts={},editing=false,canEdit=false,auditLog=[];
+let D=null,view="pids",taxMode="enc",sorts={},editing=false,canEdit=false,auditLog=[],usersList=[];
 const S=k=>D.settings.find(s=>s.key===k)?.value;
 const ref=(t,id,f,ctx)=>({t,id,f,ctx});
 
@@ -324,9 +399,10 @@ function views(B){
     lede:"Cada valor editado no sistema fica registrado aqui, com o valor anterior e o novo.",
     cards:card("Alterações",auditLog.length,"","últimas 200")+card("Disponível DVB",`<span ${editing?`class="edv" ${avRef} style="cursor:pointer;border-bottom:2px dashed var(--warn)"`:""}>${nf.format(AV)}</span>`,"Mbps",editing?"Clique para editar":""),
     usage:"",
-    tables:[{rows:auditLog.map(h=>({at:new Date(h.at).toLocaleString("pt-BR"),ctx:h.context||`${h.tbl} #${h.row_id}`,field:h.field,old:h.old_value,new:h.new_value})),
-      cols:[["Quando","at","txt"],["Item","ctx","txt"],["Campo","field","txt"],["Antes","old","txt"],["Depois","new","txt"]]}],
-    notes:[]}
+    tables:[{rows:auditLog.map(h=>({at:new Date(h.at).toLocaleString("pt-BR"),who:h.username||"—",ctx:h.context||`${h.tbl} #${h.row_id}`,field:h.field,old:h.old_value,new:h.new_value})),
+      cols:[["Quando","at","txt"],["Quem","who","txt"],["Item","ctx","txt"],["Campo","field","txt"],["Antes","old","txt"],["Depois","new","txt"]]}],
+    notes:[]},
+   ...(ME?.role==="admin"?{users:{tab:"Usuários",custom:usersPage}}:{})
   };
 }
 
@@ -388,7 +464,8 @@ function renderTables(){
   $("count").textContent=q?`${shown} de ${tot} linhas`:`${tot} linhas`;
 }
 function render(keepSearch){
-  const all=views(build());V=all[view];
+  const all=views(build());if(!all[view])view="pids";V=all[view];
+  if(V.custom){$("tabs").innerHTML=Object.entries(all).map(([k,v])=>`<button class="tab${k===view?" on":""}" role="tab" aria-selected="${k===view}" data-v="${k}">${v.tab}</button>`).join("");$("app").innerHTML=V.custom();return}
   const q=keepSearch&&$("q")?$("q").value:"";
   $("tabs").innerHTML=Object.entries(all).map(([k,v])=>`<button class="tab${k===view?" on":""}" role="tab" aria-selected="${k===view}" data-v="${k}">${v.tab}</button>`).join("");
   $("app").innerHTML=`<section class="hero"><span class="eyebrow">${V.eyebrow}</span><h1>${V.title}</h1><p class="lede">${V.lede}</p></section>
@@ -408,8 +485,11 @@ function render(keepSearch){
 
 /* ===== Edição ===== */
 async function api(path,opts={}){
-  const r=await fetch(path,{...opts,headers:{"Content-Type":"application/json",...(opts.token?{Authorization:"Bearer "+opts.token}:{})}});
-  const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||"Falha na requisição."),{status:r.status});return j;
+  const r=await fetch(path,{...opts,credentials:"same-origin",headers:{"Content-Type":"application/json","X-Requested-With":"bts"}});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401&&!path.startsWith("/api/auth/login")){showLogin("Sua sessão terminou. Entre de novo.");}
+  if(r.status===403&&j.code==="must_change"){showPassword(true);}
+  if(!r.ok)throw Object.assign(new Error(j.error||"Falha na requisição."),{status:r.status,code:j.code});return j;
 }
 function applyLocal(rf,value){
   const map={equipment:["equipment","id"],settings:["settings","key"],bitrates:["bitrates","id"],service_pids:["pids","service_id"],encoder_rates:["encoder","id"],isdb_layers:["layers","id"],isdb_pids:["isdbPids","id"]};
@@ -427,11 +507,11 @@ function startEdit(el){
   let done=false;
   const finish=async save=>{if(done)return;done=true;
     if(!save||inp.value.trim()===start){el.innerHTML=oldHtml;return}
-    try{const r=await api(`/api/${rf.t}/${encodeURIComponent(rf.id)}`,{method:"PATCH",token:getToken(),body:JSON.stringify({field:rf.f,value:inp.value.trim(),context:rf.ctx})});
+    try{const r=await api(`/api/${rf.t}/${encodeURIComponent(rf.id)}`,{method:"PATCH",body:JSON.stringify({field:rf.f,value:inp.value.trim(),context:rf.ctx})});
       if(rf.renameSvc||rf.t==="services"&&rf.f==="name"){await reload("Nome alterado em todas as abas");return}
       applyLocal(rf,r.value);toast("Valor salvo");
       auditLog=await api("/api/history").catch(()=>auditLog);render(true);
-    }catch(e){el.innerHTML=oldHtml;toast(e.message,true);if(e.status===401){setToken("");setEditing(false)}}};
+    }catch(e){el.innerHTML=oldHtml;toast(e.message,true);}};
   inp.addEventListener("keydown",e=>{if(e.key==="Enter")finish(true);if(e.key==="Escape")finish(false)});
   inp.addEventListener("blur",()=>finish(true));
 }
@@ -447,9 +527,9 @@ function startSelect(el,rf){
   const save=async()=>{if(done)return;done=true;
     if(sel.value==="__new"){view="equip";location.hash="equip";render();setTimeout(()=>$("eqName")?.focus(),50);return}
     const val=sel.value===""?null:+sel.value;if(val===(cur===""?null:cur)){el.innerHTML=oldHtml;return}
-    try{const r=await api(`/api/${rf.t}/${rf.id}`,{method:"PATCH",token:getToken(),body:JSON.stringify({field:"equipment_id",value:val,context:rf.ctx})});
+    try{const r=await api(`/api/${rf.t}/${rf.id}`,{method:"PATCH",body:JSON.stringify({field:"equipment_id",value:val,context:rf.ctx})});
       applyLocal(rf,r.value);toast("Equipamento definido");auditLog=await api("/api/history").catch(()=>auditLog);render(true);
-    }catch(e){el.innerHTML=oldHtml;toast(e.message,true);if(e.status===401){setToken("");setEditing(false)}}};
+    }catch(e){el.innerHTML=oldHtml;toast(e.message,true);}};
   sel.addEventListener("change",save);
   sel.addEventListener("keydown",e=>{if(e.key==="Escape"){done=true;el.innerHTML=oldHtml}});
   sel.addEventListener("blur",()=>{if(!done){done=true;el.innerHTML=oldHtml}});
@@ -494,9 +574,9 @@ function svcForm(){
   </form>`;
 }
 async function reload(msg){D=await api("/api/data");auditLog=await api("/api/history").catch(()=>auditLog);if(msg)toast(msg);render(true)}
-function authFail(err){toast(err.message,true);if(err.status===401){setToken("");setEditing(false)}}
+function authFail(err){toast(err.message,true)}
 async function postRow(table,body,ignoreDup){
-  try{return await api(`/api/rows/${table}`,{method:"POST",token:getToken(),body:JSON.stringify(body)})}
+  try{return await api(`/api/rows/${table}`,{method:"POST",body:JSON.stringify(body)})}
   catch(e){if(ignoreDup&&e.status===409)return null;throw e}
 }
 const ADDERS={
@@ -507,63 +587,163 @@ const ADDERS={
   layer:async f=>{await postRow("isdb_layers",{layer:f.layer,name:f.name,mbps:f.mbps,context:"ISDB-T layers"})},
   isdbpid:async f=>{await postRow("isdb_pids",{grp:f.grp,pid:f.pid,ident:f.ident,mbps:f.mbps,context:"ISDB-T PIDs"})},
 };
-function askLogin(){
-  $("login").hidden=false;$("loginMsg").textContent="Digite a senha de edição para incluir, excluir ou alterar.";
-  window.scrollTo({top:0,behavior:"smooth"});setTimeout(()=>$("token").focus(),300);
-}
 function setEditing(on){editing=on;$("editBtn").classList.toggle("on",on);$("editBtn").textContent=on?"Sair da edição":"Editar valores";render(true)}
 
 /* ===== Eventos ===== */
-$("tabs").addEventListener("click",async e=>{const b=e.target.closest(".tab");if(!b)return;view=b.dataset.v;if(view==="hist")auditLog=await api("/api/history").catch(()=>[]);location.hash=view;render()});
+$("tabs").addEventListener("click",async e=>{const b=e.target.closest(".tab");if(!b)return;view=b.dataset.v;if(view==="hist")auditLog=await api("/api/history").catch(()=>[]);if(view==="users")usersList=await api("/api/users").catch(()=>[]);location.hash=view;render()});
 $("app").addEventListener("click",e=>{
   const m=e.target.closest("[data-m]");if(m){taxMode=m.dataset.m;render(true);return}
   const th=e.target.closest("th button");if(th){const key=view+th.dataset.t,s=sorts[key];sorts[key]={k:th.dataset.k,asc:s&&s.k===th.dataset.k?!s.asc:true};renderTables();return}
-  if(e.target.closest("[data-delrows],[data-delsvc],[data-del]")&&!editing){askLogin();return}
   const arm=b=>{if(b.dataset.armed==="1")return true;b.dataset.armed="1";b.textContent="Confirmar exclusão";setTimeout(()=>{if(b.isConnected){b.dataset.armed="";b.textContent="Excluir"}},4000);return false};
   const dr=e.target.closest("[data-delrows]");if(dr){if(!arm(dr))return;const {rows,name}=JSON.parse(dr.dataset.delrows);
-    (async()=>{try{for(const [t,id] of rows)await api(`/api/rows/${t}/${encodeURIComponent(id)}?context=${encodeURIComponent((V.tab||"")+" · "+name)}`,{method:"DELETE",token:getToken()});await reload("Linha excluída")}catch(err){authFail(err);reload()}})();return}
+    (async()=>{try{for(const [t,id] of rows)await api(`/api/rows/${t}/${encodeURIComponent(id)}?context=${encodeURIComponent((V.tab||"")+" · "+name)}`,{method:"DELETE"});await reload("Linha excluída")}catch(err){authFail(err);reload()}})();return}
   const ds=e.target.closest("[data-delsvc]");if(ds){if(!arm(ds))return;
-    api(`/api/services/${ds.dataset.delsvc}`,{method:"DELETE",token:getToken()}).then(()=>reload(`${ds.dataset.name} excluído`)).catch(authFail);return}
+    api(`/api/services/${ds.dataset.delsvc}`,{method:"DELETE"}).then(()=>reload(`${ds.dataset.name} excluído`)).catch(authFail);return}
   const del=e.target.closest("[data-del]");if(del){
     if(del.dataset.armed!=="1"){del.dataset.armed="1";del.textContent="Confirmar exclusão";setTimeout(()=>{if(del.isConnected){del.dataset.armed="";del.textContent="Excluir"}},4000);return}
-    api(`/api/equipment/${del.dataset.del}`,{method:"DELETE",token:getToken()}).then(()=>{const id=+del.dataset.del;D.equipment=D.equipment.filter(x=>x.id!==id);
+    api(`/api/equipment/${del.dataset.del}`,{method:"DELETE"}).then(()=>{const id=+del.dataset.del;D.equipment=D.equipment.filter(x=>x.id!==id);
       for(const b of D.bitrates)if(b.equipment_id===id)b.equipment_id=null;for(const x of D.encoder)if(x.equipment_id===id)x.equipment_id=null;for(const x of D.layers)if(x.equipment_id===id)x.equipment_id=null;toast("Equipamento excluído");render(true)})
-      .catch(err=>{toast(err.message,true);if(err.status===401){setToken("");setEditing(false)}});return}
+      .catch(authFail);return}
   const ed=e.target.closest("td.ed,.edv");if(ed)startEdit(ed);
 });
 $("app").addEventListener("submit",async e=>{
-  if(!editing&&(e.target.closest("form[data-add]")||["svcForm","eqForm"].includes(e.target.id))){e.preventDefault();askLogin();return}
   const ab=e.target.closest("form[data-add]");
   if(ab){e.preventDefault();const f=Object.fromEntries(new FormData(ab).entries()),msg=ab.querySelector(".msg");msg.textContent="";
-    try{await ADDERS[ab.dataset.add](f);await reload("Linha incluída")}catch(err){msg.textContent=err.message;if(err.status===401){setToken("");setEditing(false)}}return}
+    try{await ADDERS[ab.dataset.add](f);await reload("Linha incluída")}catch(err){msg.textContent=err.message;}return}
   if(e.target.id==="svcForm"){e.preventDefault();const fd=new FormData(e.target),body=Object.fromEntries(fd.entries());body.include=fd.getAll("include");$("svMsg").textContent="";
-    try{const sv=await api("/api/services",{method:"POST",token:getToken(),body:JSON.stringify(body)});await reload(`${sv.name} cadastrado`);$("svName")?.focus()}
-    catch(err){$("svMsg").textContent=err.message;if(err.status===401){setToken("");setEditing(false)}}return}
+    try{const sv=await api("/api/services",{method:"POST",body:JSON.stringify(body)});await reload(`${sv.name} cadastrado`);$("svName")?.focus()}
+    catch(err){$("svMsg").textContent=err.message;}return}
   if(e.target.id!=="eqForm")return;e.preventDefault();
   const f=e.target,body=Object.fromEntries(new FormData(f).entries());$("eqMsg").textContent="";
-  try{const eq=await api("/api/equipment",{method:"POST",token:getToken(),body:JSON.stringify(body)});D.equipment.push(eq);D.equipment.sort((a,b)=>a.name.localeCompare(b.name,"pt"));
+  try{const eq=await api("/api/equipment",{method:"POST",body:JSON.stringify(body)});D.equipment.push(eq);D.equipment.sort((a,b)=>a.name.localeCompare(b.name,"pt"));
     toast(`${eq.name} cadastrado`);render(true);$("eqName")?.focus()}
-  catch(err){$("eqMsg").textContent=err.message;if(err.status===401){setToken("");setEditing(false)}}});
+  catch(err){$("eqMsg").textContent=err.message;}});
 $("app").addEventListener("keydown",e=>{const ed=e.target.closest&&e.target.closest("td.ed");if(ed&&e.key==="Enter"&&e.target===ed){e.preventDefault();startEdit(ed)}});
 $("app").addEventListener("input",e=>{if(e.target.id==="q")renderTables()});
-$("editBtn").addEventListener("click",async()=>{
-  if(editing)return setEditing(false);
-  if(getToken()){try{await api("/api/auth/check",{method:"POST",token:getToken()});return setEditing(true)}catch{setToken("")}}
-  $("login").hidden=false;$("token").focus();
-});
-$("login").addEventListener("submit",async e=>{e.preventDefault();$("loginMsg").textContent="";
-  const tk=$("token").value.trim();
-  try{await api("/api/auth/check",{method:"POST",token:tk});setToken(tk);$("token").value="";$("login").hidden=true;setEditing(true)}
-  catch(err){$("loginMsg").textContent=err.message}});
-$("loginCancel").addEventListener("click",()=>{$("login").hidden=true;$("loginMsg").textContent=""});
+$("editBtn").addEventListener("click",()=>setEditing(!editing));
 $("themeBtn").addEventListener("click",()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches;r.dataset.theme=dark?"light":"dark"});
 
-(async()=>{
+/* ===== Usuários (admin) ===== */
+const ROLE_OPTS=[["viewer","Leitura","Só consulta os dados"],["editor","Editor","Consulta e altera os dados"],["admin","Admin","Altera os dados e gerencia usuários"]];
+function usersPage(){
+  const act=usersList.filter(u=>u.active).length;
+  const rows=usersList.map(u=>{const me=u.id===ME.id;
+    return `<tr class="${u.active?"":"off"}">
+      <td><span class="svc"><span class="avatar sm">${esc(initials(u.name))}</span><span>${esc(u.name)}${me?' <span class="chip c-acc">você</span>':""}<small>@${esc(u.username)}</small></span></span></td>
+      <td><select class="rolesel" data-uid="${u.id}" aria-label="Perfil de ${esc(u.name)}" ${me?"disabled title=\"Você não pode mudar o próprio perfil\"":""}>${ROLE_OPTS.map(([v,l])=>`<option value="${v}" ${u.role===v?"selected":""}>${l}</option>`).join("")}</select></td>
+      <td>${u.active?(u.must_change?'<span class="chip c-warn">aguardando 1º acesso</span>':'<span class="chip c-ok">ativo</span>'):'<span class="chip c-off">desativado</span>'}</td>
+      <td>${u.last_login?new Date(u.last_login).toLocaleString("pt-BR"):"nunca entrou"}</td>
+      <td class="r"><div class="acts">
+        <button type="button" class="btn sm" data-ureset="${u.id}" data-uname="${esc(u.username)}">Redefinir senha</button>
+        ${me?"":`<button type="button" class="btn sm" data-uactive="${u.id}" data-on="${u.active?0:1}">${u.active?"Desativar":"Reativar"}</button>
+        <button type="button" class="btn sm danger" data-udel="${u.id}">Excluir</button>`}
+      </div></td></tr>`}).join("");
+  return `<section class="hero"><span class="eyebrow">Sistema · acesso</span><h1>Usuários</h1><p class="lede">Quem pode entrar no sistema e o que cada pessoa pode fazer. Toda entrada, saída e alteração fica no Histórico com o nome do usuário.</p></section>
+  <section class="cards">${card("Usuários",usersList.length,"")+card("Ativos",act,"")+card("Admins",usersList.filter(u=>u.role==="admin"&&u.active).length,"")+card("Aguardando 1º acesso",usersList.filter(u=>u.active&&u.must_change).length,"")}</section>
+  <form class="eqform" id="userForm" autocomplete="off">
+    <h2>Novo usuário</h2>
+    <div class="eqgrid">
+      <label>Nome da pessoa *<input id="nuName" name="name" required placeholder="Ex.: Maria Souza"></label>
+      <label>Usuário (login) *<input id="nuUser" name="username" required autocapitalize="none" spellcheck="false" placeholder="Ex.: maria.souza"></label>
+      <label>Perfil<select id="nuRole" name="role">${ROLE_OPTS.map(([v,l,d])=>`<option value="${v}" ${v==="editor"?"selected":""}>${l}: ${d}</option>`).join("")}</select></label>
+      <label>Senha provisória *<span class="pwfield"><input id="nuPass" name="password" type="text" required autocomplete="new-password"><button type="button" class="eye" id="nuGen">gerar</button></span></label>
+    </div>
+    <p class="hint">A pessoa entra com essa senha provisória e é obrigada a criar uma senha própria no primeiro acesso. Senha: 8 caracteres ou mais, com letras e números.</p>
+    <div class="eqactions"><button class="btn primary" type="submit">Criar usuário</button><span class="msg" id="nuMsg"></span></div>
+  </form>
+  <div class="tablebox"><table class="users"><thead><tr><th class="plain">Pessoa</th><th class="plain">Perfil</th><th class="plain">Situação</th><th class="plain">Último acesso</th><th class="plain"></th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="resetbox" id="resetBox" hidden></div>
+  <div class="notes"><p>Perfis: <b>Leitura</b> só consulta. <b>Editor</b> inclui, exclui e altera dados. <b>Admin</b> faz tudo isso e gerencia usuários.</p><p>Desativar bloqueia a entrada na hora, mas mantém o nome no histórico. Prefira desativar a excluir.</p></div>`;
+}
+function genPass(){const a="abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ",d="23456789";const r=new Uint32Array(10);crypto.getRandomValues(r);
+  let p=[...r].slice(0,8).map(x=>a[x%a.length]).join("")+d[r[8]%d.length]+d[r[9]%d.length];return p}
+async function reloadUsers(msg){usersList=await api("/api/users");if(msg)toast(msg);render()}
+$("app").addEventListener("change",async e=>{
+  const s=e.target.closest(".rolesel");if(!s)return;
+  try{await api(`/api/users/${s.dataset.uid}`,{method:"PATCH",body:JSON.stringify({role:s.value})});await reloadUsers("Perfil alterado")}
+  catch(err){toast(err.message,true);reloadUsers()}
+});
+$("app").addEventListener("click",async e=>{
+  if(e.target.id==="nuGen"){$("nuPass").value=genPass();return}
+  const ua=e.target.closest("[data-uactive]");
+  if(ua){try{await api(`/api/users/${ua.dataset.uactive}`,{method:"PATCH",body:JSON.stringify({active:ua.dataset.on==="1"})});await reloadUsers(ua.dataset.on==="1"?"Usuário reativado":"Usuário desativado")}catch(err){toast(err.message,true)}return}
+  const ud=e.target.closest("[data-udel]");
+  if(ud){if(ud.dataset.armed!=="1"){ud.dataset.armed="1";ud.textContent="Confirmar exclusão";setTimeout(()=>{if(ud.isConnected){ud.dataset.armed="";ud.textContent="Excluir"}},4000);return}
+    try{await api(`/api/users/${ud.dataset.udel}`,{method:"DELETE"});await reloadUsers("Usuário excluído")}catch(err){toast(err.message,true)}return}
+  const ur=e.target.closest("[data-ureset]");
+  if(ur){const p=genPass();
+    try{await api(`/api/users/${ur.dataset.ureset}`,{method:"PATCH",body:JSON.stringify({password:p})});await reloadUsers();
+      const box=$("resetBox");box.hidden=false;box.innerHTML=`<b>Senha provisória de @${esc(ur.dataset.uname)}:</b> <code id="rsPass">${p}</code> <button type="button" class="btn sm" id="rsCopy">Copiar</button><span>Passe essa senha para a pessoa. Ela vai criar uma senha própria ao entrar.${+ur.dataset.ureset===ME.id?"":" Os acessos abertos dela foram encerrados."}</span>`;
+      box.scrollIntoView({block:"nearest"})}
+    catch(err){toast(err.message,true)}return}
+  if(e.target.id==="rsCopy"){const t=$("rsPass").textContent;try{await navigator.clipboard.writeText(t);toast("Senha copiada")}catch{const r=document.createRange();r.selectNodeContents($("rsPass"));getSelection().removeAllRanges();getSelection().addRange(r)}}
+});
+$("app").addEventListener("submit",async e=>{if(e.target.id!=="userForm")return;e.preventDefault();e.stopImmediatePropagation();
+  const b=Object.fromEntries(new FormData(e.target).entries());$("nuMsg").textContent="";
+  try{await api("/api/users",{method:"POST",body:JSON.stringify(b)});
+    const box=`Usuário <b>@${esc(b.username.trim().toLowerCase())}</b> criado. Senha provisória: <code>${esc(b.password)}</code>`;
+    await reloadUsers("Usuário criado");$("resetBox").hidden=false;$("resetBox").innerHTML=box+"<span>Passe o usuário e a senha para a pessoa. Ela cria uma senha própria no primeiro acesso.</span>"}
+  catch(err){$("nuMsg").textContent=err.message}},true);
+/* ===== Login ===== */
+let ME=null;
+function showLogin(msg){
+  ME=null;$("userMenu").hidden=true;$("editBtn").hidden=true;
+  $("authScreen").hidden=false;$("loginForm").hidden=false;$("pwForm").hidden=true;
+  $("lgErr").textContent=msg||"";$("lgPass").value="";setTimeout(()=>($("lgUser").value?$("lgPass"):$("lgUser")).focus(),50);
+}
+function showPassword(forced){
+  $("authScreen").hidden=false;$("loginForm").hidden=true;$("pwForm").hidden=false;$("pwForm").dataset.forced=forced?"1":"";
+  $("pwTitle").textContent=forced?"Crie sua senha":"Trocar senha";
+  $("pwHint").textContent=forced?"Primeiro acesso ou senha redefinida: escolha uma senha só sua para continuar.":"A nova senha passa a valer agora. Outros acessos abertos com o seu usuário são encerrados.";
+  $("pwCancel").hidden=!!forced;$("pwErr").textContent="";["pwCur","pwNew","pwNew2"].forEach(id=>$(id).value="");checkRules();setTimeout(()=>$("pwCur").focus(),50);
+}
+function hideAuth(){$("authScreen").hidden=true}
+function initials(n){return String(n||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+async function start(user){
+  ME=user;hideAuth();
+  $("userMenu").hidden=false;$("userName").textContent=user.name;$("userAvatar").textContent=initials(user.name);
+  $("menuName").textContent=user.name;$("menuRole").textContent=user.roleLabel;$("menuUser").textContent="@"+user.username;
+  if(user.mustChange)return showPassword(true);
   try{D=await api("/api/data");canEdit=D.editable;$("editBtn").hidden=!canEdit;
-    const h=location.hash.slice(1);if(["pids","dvb","old","taxas","isdb","svcs","equip","hist"].includes(h))view=h;
+    const h=location.hash.slice(1);if(["pids","dvb","old","taxas","isdb","svcs","equip","hist","users"].includes(h))view=h;
+    if(view==="users"&&user.role!=="admin")view="pids";
     if(view==="hist")auditLog=await api("/api/history").catch(()=>[]);
+    if(view==="users")usersList=await api("/api/users").catch(()=>[]);
     render();
-  }catch(e){$("app").innerHTML=`<p class="state">Não foi possível carregar os dados do banco. ${esc(e.message)}</p>`}
+  }catch(e){if(e.status!==401&&e.code!=="must_change")$("app").innerHTML=`<p class="state">Não foi possível carregar os dados do banco. ${esc(e.message)}</p>`}
+}
+$("loginForm").addEventListener("submit",async e=>{e.preventDefault();$("lgErr").textContent="";$("lgBtn").disabled=true;$("lgBtn").textContent="Entrando…";
+  try{const u=await api("/api/auth/login",{method:"POST",body:JSON.stringify({username:$("lgUser").value,password:$("lgPass").value})});$("lgPass").value="";await start(u)}
+  catch(err){$("lgErr").textContent=err.message;$("lgPass").select()}
+  finally{$("lgBtn").disabled=false;$("lgBtn").textContent="Entrar"}});
+$("lgPass").addEventListener("keyup",e=>{$("lgCaps").hidden=!(e.getModifierState&&e.getModifierState("CapsLock"))});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-eye]");if(!b)return;const i=$(b.dataset.eye);const show=i.type==="password";i.type=show?"text":"password";b.textContent=show?"ocultar":"mostrar";b.setAttribute("aria-label",show?"Ocultar senha":"Mostrar senha");i.focus()});
+function checkRules(){
+  const p=$("pwNew").value,u=(ME?.username||"").toLowerCase();
+  const r={len:p.length>=8,mix:/[A-Za-zÀ-ÿ]/.test(p)&&/[0-9]/.test(p),user:!!p&&!(u&&p.toLowerCase().includes(u))};
+  for(const li of $("pwRules").children)li.classList.toggle("ok",r[li.dataset.r]);
+  let sc=(r.len?1:0)+(r.mix?1:0)+(r.user?1:0)+(p.length>=12?1:0)+(/[^A-Za-z0-9]/.test(p)?1:0);
+  $("pwMeter").style.width=(p?sc*20:0)+"%";$("pwMeter").className=sc<3?"weak":sc<5?"mid":"strong";
+}
+$("pwNew").addEventListener("input",checkRules);
+$("pwForm").addEventListener("submit",async e=>{e.preventDefault();$("pwErr").textContent="";
+  if($("pwNew").value!==$("pwNew2").value){$("pwErr").textContent="As duas senhas novas não são iguais.";return}
+  try{await api("/api/auth/password",{method:"POST",body:JSON.stringify({current:$("pwCur").value,password:$("pwNew").value})});
+    toast("Senha alterada");const forced=$("pwForm").dataset.forced;hideAuth();if(forced){const me=await api("/api/auth/me");await start(me)}}
+  catch(err){$("pwErr").textContent=err.message}});
+$("pwCancel").addEventListener("click",hideAuth);
+$("userBtn").addEventListener("click",e=>{e.stopPropagation();const d=$("userDrop");d.hidden=!d.hidden;$("userBtn").setAttribute("aria-expanded",String(!d.hidden))});
+document.addEventListener("click",e=>{if(!e.target.closest("#userMenu"))$("userDrop").hidden=true});
+$("pwBtn").addEventListener("click",()=>{$("userDrop").hidden=true;showPassword(false)});
+$("logoutBtn").addEventListener("click",async()=>{$("userDrop").hidden=true;await api("/api/auth/logout",{method:"POST"}).catch(()=>{});
+  D=null;editing=false;$("app").innerHTML="";$("tabs").innerHTML="";$("lgUser").value="";showLogin("Você saiu do sistema.")});
+
+(async()=>{
+  try{const me=await fetch("/api/auth/me",{credentials:"same-origin"});
+    if(me.status===401)return showLogin();
+    const j=await me.json();if(me.status===403&&j.code==="must_change"){return start({...(await (await fetch("/api/auth/me")).json())})}
+    await start(j);
+  }catch{$("app").innerHTML=`<p class="state">Não foi possível conectar ao servidor.</p>`}
 })();
 </script>
 </body>

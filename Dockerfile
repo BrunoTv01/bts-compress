@@ -3,7 +3,8 @@ WORKDIR /app
 ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0
 COPY package.json ./
 RUN npm install --omit=dev --no-audit --no-fund --loglevel=error
-COPY server.js ./
+COPY server.js auth.js ./
+COPY tools ./tools
 COPY db ./db
 COPY public ./public
 USER node

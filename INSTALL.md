@@ -33,16 +33,27 @@ cd bts-compress
 ### 2. Rode o instalador
 
 ```bash
-sudo ./deploy/install.sh --senha SuaSenhaDeEdicao
+sudo ./deploy/install.sh --senha SenhaInicial123
 ```
 
-No final aparecem o endereço do sistema e a senha de edição. Se você não passar `--senha`, uma senha é gerada e mostrada.
+No final aparecem o endereço do sistema, o login `admin` e a senha inicial. Se você não passar `--senha`, uma senha é gerada e mostrada.
+
+### 3. Primeiro acesso
+
+1. Abra o endereço no navegador e entre com o usuário **admin** e a senha inicial.
+2. O sistema pede uma senha nova, só sua.
+3. Na aba **Usuários**, cadastre as outras pessoas com o perfil certo:
+   - **Leitura**: só consulta.
+   - **Editor**: inclui, exclui e altera dados.
+   - **Admin**: tudo isso e também gerencia usuários.
+
+Cada pessoa recebe uma senha provisória e cria a própria senha no primeiro acesso.
 
 Opções do instalador:
 
 | Opção | O que faz |
 |---|---|
-| `--senha S` | Define a senha de edição |
+| `--senha S` | Senha inicial do usuário `admin`. Em uma reinstalação, redefine a senha do `admin` |
 | `--porta N` | Porta do sistema (padrão 3000) |
 | `--nginx` | Publica na porta 80 através do nginx. O sistema passa a aceitar conexões só pelo nginx |
 | `--dominio nome` | Nome do servidor no nginx, por exemplo `bts.cultura.local` |
@@ -58,14 +69,14 @@ sudo ./deploy/install.sh --nginx --senha SuaSenha
 sudo DATABASE_URL=postgres://usuario:senha@10.0.0.5:5432/bts ./deploy/install.sh --sem-banco
 ```
 
-O instalador pode ser rodado de novo sem perder dados. Os dados e a configuração ficam preservados. Rodar com `--senha` troca a senha de edição.
+O instalador pode ser rodado de novo sem perder dados. Os dados, os usuários e a configuração ficam preservados. Rodar com `--senha` redefine a senha do `admin`.
 
 ### O que fica onde
 
 | Item | Local |
 |---|---|
 | Sistema | `/opt/bts-compress` |
-| Configuração (porta, banco, senha) | `/etc/bts-compress.env` |
+| Configuração (porta, banco, senha inicial) | `/etc/bts-compress.env` |
 | Serviço | `bts-compress` (systemd), inicia junto com o servidor |
 | Banco | PostgreSQL local, banco `bts`, usuário `bts` |
 | Backups | `/var/backups/bts-compress` |
@@ -76,7 +87,8 @@ O instalador pode ser rodado de novo sem perder dados. Os dados e a configuraç�
 sudo systemctl status bts-compress      # está rodando?
 sudo systemctl restart bts-compress     # reiniciar
 sudo journalctl -u bts-compress -f      # ver o log ao vivo
-sudo nano /etc/bts-compress.env         # mudar porta ou senha (depois reinicie)
+sudo nano /etc/bts-compress.env         # mudar porta (depois reinicie)
+sudo /opt/bts-compress/deploy/reset-senha.sh admin NovaSenha123   # recuperar acesso de um usuário
 ```
 
 ### Backup
@@ -118,11 +130,13 @@ Requer Docker e o plugin `docker compose`.
 git clone https://github.com/BrunoTv01/bts-compress.git
 cd bts-compress
 cp .env.example .env
-nano .env                  # troque DB_PASSWORD e ADMIN_TOKEN
+nano .env                  # troque DB_PASSWORD e ADMIN_TOKEN (senha inicial do admin)
 docker compose up -d --build
 ```
 
-Abra `http://IP-DO-SERVIDOR:3000`.
+Abra `http://IP-DO-SERVIDOR:3000` e entre com o usuário `admin` e a senha que você pôs em `ADMIN_TOKEN`.
+
+Para recuperar o acesso: `docker compose exec app node tools/reset-password.js admin NovaSenha123`.
 
 ```bash
 docker compose logs -f app                                              # log
@@ -138,7 +152,11 @@ Os dados ficam no volume `bts-db` e não se perdem ao atualizar ou reiniciar.
 
 **A página não abre de outro computador.** Confira se a porta está liberada no firewall da rede. O instalador libera no `ufw` e no `firewalld` do próprio servidor, mas não em firewalls externos.
 
-**"Senha de edição incorreta".** Veja a senha em uso com `sudo grep ADMIN_TOKEN /etc/bts-compress.env`. Para trocar: `sudo ./deploy/install.sh --senha NovaSenha`.
+**"Usuário ou senha incorretos".** Um admin pode redefinir a senha na aba **Usuários**. Se ninguém consegue entrar, use no servidor `sudo /opt/bts-compress/deploy/reset-senha.sh admin NovaSenha123`.
+
+**"Muitas tentativas erradas".** Depois de 5 senhas erradas o usuário fica bloqueado por 10 minutos. Espere ou reinicie o serviço com `sudo systemctl restart bts-compress`.
+
+**Usar HTTPS.** Recomendado se o sistema for acessado fora da rede interna. Com `--nginx` instalado, rode `sudo apt install certbot python3-certbot-nginx && sudo certbot --nginx -d seu.dominio`. O cookie de login passa a ser marcado como seguro automaticamente.
 
 **O serviço não sobe.** Rode `sudo journalctl -u bts-compress -n 50`. A causa mais comum é o PostgreSQL parado: `sudo systemctl start postgresql`.
 

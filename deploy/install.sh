@@ -8,7 +8,7 @@
 #
 # Opções:
 #   --porta N | --port N   porta do sistema (padrão 3000)
-#   --senha S              senha de edição (padrão: gerada e mostrada no final)
+#   --senha S              senha inicial do usuário admin (padrão: gerada e mostrada no final)
 #   --nginx                instala nginx como proxy na porta 80
 #   --dominio NOME         nome do servidor no nginx (padrão: _ , qualquer nome)
 #   --sem-banco            não instala PostgreSQL; use DATABASE_URL já existente (variável de ambiente)
@@ -26,6 +26,8 @@ NGINX=0
 DOMINIO="_"
 SEM_BANCO=0
 NODE_MIN=20
+FIRST=0
+RESET_ADMIN=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -47,6 +49,10 @@ fail() { printf '\033[31m✖ %s\033[0m\n' "$*" >&2; exit 1; }
 SRC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 [ -f "$SRC_DIR/server.js" ] || fail "Não achei server.js em $SRC_DIR. Rode o script de dentro da pasta do projeto."
 case "$PORT" in ''|*[!0-9]*) fail "Porta inválida: $PORT";; esac
+if [ -n "$SENHA" ]; then
+  { [ ${#SENHA} -ge 8 ] && [[ "$SENHA" =~ [A-Za-z] ]] && [[ "$SENHA" =~ [0-9] ]]; } \
+    || fail "A senha precisa ter 8 caracteres ou mais, com letras e números."
+fi
 command -v systemctl >/dev/null || fail "Este servidor não usa systemd. Use a instalação com Docker (veja INSTALL.md)."
 
 # ---------- distribuição ----------
@@ -107,11 +113,12 @@ ok "Arquivos em $APP_DIR"
 if [ -f "$ENV_FILE" ]; then
   ok "Mantendo configuração existente em $ENV_FILE"
   if [ -n "$SENHA" ]; then
-    sed -i "s#^ADMIN_TOKEN=.*#ADMIN_TOKEN=$SENHA#" "$ENV_FILE"; ok "Senha de edição atualizada"
+    RESET_ADMIN=1
   fi
 else
+  FIRST=1
   DB_PASS="$(openssl rand -hex 16)"
-  [ -n "$SENHA" ] || SENHA="$(openssl rand -base64 12 | tr -d '/+=' | cut -c1-12)"
+  [ -n "$SENHA" ] || SENHA="$(openssl rand -base64 12 | tr -d '/+=' | cut -c1-10)7k"
   if [ "$SEM_BANCO" -eq 1 ]; then
     [ -n "${DATABASE_URL:-}" ] || fail "Com --sem-banco, defina DATABASE_URL antes de rodar o script."
     DBURL="$DATABASE_URL"
@@ -177,12 +184,23 @@ done
 curl -fsS "http://127.0.0.1:$LOCAL_PORT/api/health" >/dev/null 2>&1 \
   || fail "O sistema não respondeu. Veja o log: journalctl -u $APP -n 50"
 
+if [ "$RESET_ADMIN" -eq 1 ]; then
+  bash "$APP_DIR/deploy/reset-senha.sh" admin "$SENHA" || fail "Senha recusada: use 8 caracteres ou mais, com letras e números."
+fi
+
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 URL="http://${IP:-SEU-SERVIDOR}$([ "$NGINX" -eq 1 ] && echo "" || echo ":$PUB_PORT")"
 echo
 ok "BTS Compress instalado"
 echo "   Endereço:          $URL"
-echo "   Senha de edição:   $(sed -n 's/^ADMIN_TOKEN=//p' "$ENV_FILE")"
+if [ "$FIRST" -eq 1 ]; then
+  echo "   Login:             admin"
+  echo "   Senha inicial:     $(sed -n 's/^ADMIN_TOKEN=//p' "$ENV_FILE")   (o sistema pede uma senha nova no primeiro acesso)"
+elif [ "$RESET_ADMIN" -eq 1 ]; then
+  echo "   Login:             admin"
+  echo "   Senha provisória:  $SENHA   (o sistema pede uma senha nova no próximo acesso)"
+fi
+echo "   Esqueceu a senha:  sudo $APP_DIR/deploy/reset-senha.sh admin NovaSenha123"
 echo "   Configuração:      $ENV_FILE"
 echo "   Ver log:           journalctl -u $APP -f"
 echo "   Reiniciar:         systemctl restart $APP"

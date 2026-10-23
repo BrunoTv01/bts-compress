@@ -4,15 +4,13 @@ const crypto = require('crypto');
 const express = require('express');
 const pg = require('pg');
 const { seed } = require('./db/seed');
+const auth = require('./auth');
 
 // NUMERIC volta como número, não como texto
 pg.types.setTypeParser(1700, v => (v === null ? null : parseFloat(v)));
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-// Remove espaços, quebras de linha e aspas que às vezes vêm junto ao colar a senha no painel
-const ADMIN_TOKEN = (process.env.ADMIN_TOKEN || '').trim().replace(/^["']|["']$/g, '');
-const sha = s => crypto.createHash('sha256').update(String(s), 'utf8').digest();
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL || 'postgres://localhost:5432/bts',
   ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
@@ -49,18 +47,20 @@ async function migrate() {
   }
 }
 
-function requireAdmin(req, res, next) {
-  const token = (req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
-  if (!ADMIN_TOKEN) return res.status(401).json({ error: 'Nenhuma senha configurada no servidor (ADMIN_TOKEN vazio).' });
-  // Compara os hashes: funciona com acentos e símbolos e não revela o tamanho da senha
-  const ok = crypto.timingSafeEqual(sha(token), sha(ADMIN_TOKEN));
-  if (!ok) return res.status(401).json({ error: 'Senha de edição incorreta.' });
-  next();
-}
-
 const app = express();
+// atrás de nginx/Render: confia no proxy da rede local para saber o IP real e se é https
+app.set('trust proxy', process.env.TRUST_PROXY || 'loopback, linklocal, uniquelocal');
+app.disable('x-powered-by');
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  next();
+});
 app.use(express.json({ limit: '100kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+const { requireRole, bootstrap } = auth.setup(app, pool);
+const requireEditor = requireRole('editor'); // alterar dados: Editor ou Admin
 
 app.get('/api/health', async (_req, res) => {
   try { await pool.query('SELECT 1'); res.json({ ok: true }); }
@@ -68,7 +68,7 @@ app.get('/api/health', async (_req, res) => {
 });
 
 // Todos os dados do estudo numa chamada
-app.get('/api/data', async (_req, res, next) => {
+app.get('/api/data', async (req, res, next) => {
   try {
     const q = sql => pool.query(sql).then(r => r.rows);
     const [settings, services, pids, bitrates, encoder, layers, isdbPids, equipment] = await Promise.all([
@@ -81,7 +81,7 @@ app.get('/api/data', async (_req, res, next) => {
       q('SELECT * FROM isdb_pids ORDER BY sort'),
       q('SELECT * FROM equipment ORDER BY lower(name), id'),
     ]);
-    res.json({ settings, services, pids, bitrates, encoder, layers, isdbPids, equipment, editable: Boolean(ADMIN_TOKEN) });
+    res.json({ settings, services, pids, bitrates, encoder, layers, isdbPids, equipment, editable: req.user.role !== 'viewer' });
   } catch (e) { next(e); }
 });
 
@@ -92,33 +92,32 @@ app.get('/api/history', async (_req, res, next) => {
   } catch (e) { next(e); }
 });
 
-app.post('/api/auth/check', requireAdmin, (_req, res) => res.json({ ok: true }));
 
 const EQUIP_FIELDS = ['name', 'manufacturer', 'model', 'function', 'location', 'serial', 'notes'];
 const clean = v => (v == null ? null : String(v).trim().slice(0, 500) || null);
 const equipLabel = e => [e.name, e.model].filter(Boolean).join(' · ');
 
 // Cadastra equipamento: POST /api/equipment { name, manufacturer, model, function, location, serial, notes }
-app.post('/api/equipment', requireAdmin, async (req, res, next) => {
+app.post('/api/equipment', requireEditor, async (req, res, next) => {
   const b = req.body || {};
   const vals = EQUIP_FIELDS.map(f => clean(b[f]));
   if (!vals[0]) return res.status(400).json({ error: 'O nome do equipamento é obrigatório.' });
   try {
     const { rows } = await pool.query(
       `INSERT INTO equipment (${EQUIP_FIELDS.join(',')}) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, vals);
-    await pool.query('INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context) VALUES ($1,$2,$3,$4,$5,$6)',
-      ['equipment', String(rows[0].id), 'cadastro', null, equipLabel(rows[0]), 'Equipamento cadastrado']);
+    await pool.query('INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context,username) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      ['equipment', String(rows[0].id), 'cadastro', null, equipLabel(rows[0]), 'Equipamento cadastrado', auth.who()]);
     res.status(201).json(rows[0]);
   } catch (e) { next(e); }
 });
 
 // Exclui equipamento; os serviços que o usavam ficam sem equipamento
-app.delete('/api/equipment/:id', requireAdmin, async (req, res, next) => {
+app.delete('/api/equipment/:id', requireEditor, async (req, res, next) => {
   try {
     const { rows } = await pool.query('DELETE FROM equipment WHERE id=$1 RETURNING *', [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Equipamento não encontrado.' });
-    await pool.query('INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context) VALUES ($1,$2,$3,$4,$5,$6)',
-      ['equipment', String(rows[0].id), 'exclusão', equipLabel(rows[0]), null, 'Equipamento excluído']);
+    await pool.query('INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context,username) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      ['equipment', String(rows[0].id), 'exclusão', equipLabel(rows[0]), null, 'Equipamento excluído', auth.who()]);
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
@@ -126,8 +125,8 @@ app.delete('/api/equipment/:id', requireAdmin, async (req, res, next) => {
 /* ===== Inclusão e exclusão de linhas ===== */
 const num = v => { if (v === '' || v == null) return null; const n = Number(String(v).replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
 const audit = (c, tbl, id, field, oldV, newV, ctx) => c.query(
-  'INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context) VALUES ($1,$2,$3,$4,$5,$6)',
-  [tbl, String(id), field, oldV, newV, ctx ? String(ctx).slice(0, 200) : null]);
+  'INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context,username) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+  [tbl, String(id), field, oldV, newV, ctx ? String(ctx).slice(0, 200) : null, auth.who()]);
 
 // tabela -> colunas aceitas (tipo), obrigatórias e se tem ordem própria
 const ROWS = {
@@ -156,7 +155,7 @@ function parseRow(spec, body) {
   return out;
 }
 
-app.post('/api/rows/:table', requireAdmin, async (req, res, next) => {
+app.post('/api/rows/:table', requireEditor, async (req, res, next) => {
   const spec = ROWS[req.params.table];
   if (!spec) return res.status(404).json({ error: 'Tabela não permite inclusão.' });
   let row;
@@ -179,7 +178,7 @@ app.post('/api/rows/:table', requireAdmin, async (req, res, next) => {
   } finally { client.release(); }
 });
 
-app.delete('/api/rows/:table/:id', requireAdmin, async (req, res, next) => {
+app.delete('/api/rows/:table/:id', requireEditor, async (req, res, next) => {
   const spec = ROWS[req.params.table];
   if (!spec) return res.status(404).json({ error: 'Tabela não permite exclusão.' });
   const client = await pool.connect();
@@ -196,7 +195,7 @@ app.delete('/api/rows/:table/:id', requireAdmin, async (req, res, next) => {
 
 /* ===== Cadastro de serviços ===== */
 // POST /api/services { name, service_id, codec, system, include: ['pids','titular','reserva','antigo','enc','mux','isdb'] }
-app.post('/api/services', requireAdmin, async (req, res, next) => {
+app.post('/api/services', requireEditor, async (req, res, next) => {
   const b = req.body || {};
   const name = clean(b.name), codec = clean(b.codec), system = b.system === 'ISDB-T' ? 'ISDB-T' : 'DVB';
   const sid = num(b.service_id);
@@ -227,7 +226,7 @@ app.post('/api/services', requireAdmin, async (req, res, next) => {
 });
 
 // Exclui o serviço e todas as linhas dele (PIDs, bitrates, taxas)
-app.delete('/api/services/:id', requireAdmin, async (req, res, next) => {
+app.delete('/api/services/:id', requireEditor, async (req, res, next) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -242,7 +241,7 @@ app.delete('/api/services/:id', requireAdmin, async (req, res, next) => {
 });
 
 // Edita um campo: PATCH /api/bitrates/12  { "field": "mbps", "value": 4.5, "context": "FEED · titular" }
-app.patch('/api/:table/:id', requireAdmin, async (req, res, next) => {
+app.patch('/api/:table/:id', requireEditor, async (req, res, next) => {
   const spec = EDITABLE[req.params.table];
   const { field, context } = req.body || {};
   let { value } = req.body || {};
@@ -282,8 +281,8 @@ app.patch('/api/:table/:id', requireAdmin, async (req, res, next) => {
       const lbl = id => { const e = names.rows.find(r => r.id === id); return e ? equipLabel(e) : null; };
       oldTxt = lbl(cur.rows[0].v); newTxt = lbl(value);
     }
-    await client.query('INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context) VALUES ($1,$2,$3,$4,$5,$6)',
-      [t, String(req.params.id), field === 'equipment_id' ? 'equipamento' : field, oldTxt, newTxt, context ? String(context).slice(0, 200) : null]);
+    await client.query('INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context,username) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [t, String(req.params.id), field === 'equipment_id' ? 'equipamento' : field, oldTxt, newTxt, context ? String(context).slice(0, 200) : null, auth.who()]);
     await client.query('COMMIT');
     res.json({ ok: true, value });
   } catch (e) {
@@ -303,8 +302,6 @@ app.use((err, _req, res, _next) => {
 });
 
 migrate()
-  .then(() => app.listen(PORT, HOST, () => {
-    console.log(`BTS Compress rodando em ${HOST}:${PORT}`);
-    console.log(ADMIN_TOKEN ? `Senha de edição configurada (${ADMIN_TOKEN.length} caracteres).` : 'ADMIN_TOKEN vazio: edição desativada.');
-  }))
+  .then(bootstrap)
+  .then(() => app.listen(PORT, HOST, () => console.log(`BTS Compress rodando em ${HOST}:${PORT}`)))
   .catch(e => { console.error('Falha ao preparar o banco:', e); process.exit(1); });
