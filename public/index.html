@@ -205,7 +205,8 @@ footer .wrap{padding-block:20px;display:flex;gap:16px;flex-wrap:wrap;justify-con
 .menuhead{display:grid;gap:4px;padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px}
 .menuhead .chip{justify-self:start}.menuhead small{color:var(--muted)}
 .menu>button{font:inherit;font-size:14px;text-align:left;background:none;border:0;color:var(--fg);padding:9px 10px;border-radius:6px;cursor:pointer}
-.menu>button:hover{background:var(--bg)}
+.menu>button:hover,.menu>a:hover{background:var(--bg)}
+.menu>a.menulink{font-size:14px;color:var(--fg);text-decoration:none;padding:9px 10px;border-radius:6px}
 /* usuários */
 table.users td{white-space:nowrap}
 th.plain{padding:10px 12px}
@@ -235,6 +236,8 @@ table.users tr.off td{opacity:.6}
       <div class="menu" id="userDrop" hidden>
         <div class="menuhead"><b id="menuName"></b><span id="menuRole" class="chip c-acc"></span><small id="menuUser"></small></div>
         <button type="button" id="pwBtn">Trocar senha</button>
+        <a class="menulink" href="https://github.com/BrunoTv01/bts-compress/archive/refs/heads/main.zip" target="_blank" rel="noopener">Baixar o sistema (.zip)</a>
+        <a class="menulink" href="https://github.com/BrunoTv01/bts-compress/blob/main/INSTALL.md" target="_blank" rel="noopener">Como instalar no Linux</a>
         <button type="button" id="logoutBtn">Sair</button>
       </div>
     </div>

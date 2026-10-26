@@ -31,6 +31,22 @@ Depois abra o endereço mostrado e entre com **login `admin` e senha `admin`**. 
 
 Também há uma opção com Docker: `docker compose up -d`, sem precisar configurar nada.
 
+## Baixar
+
+| O quê | Link |
+|---|---|
+| Sistema completo (.zip, para Windows ou pendrive) | https://github.com/BrunoTv01/bts-compress/archive/refs/heads/main.zip |
+| Sistema completo (.tar.gz, para Linux) | https://github.com/BrunoTv01/bts-compress/archive/refs/heads/main.tar.gz |
+| Só o instalador de um comando | https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh |
+
+Depois de baixar o pacote, no servidor Linux:
+
+```bash
+tar xzf bts-compress-main.tar.gz      # ou: unzip bts-compress-main.zip
+cd bts-compress-main
+sudo ./deploy/install.sh
+```
+
 ## Rodar no Render
 
 1. No Render, clique em **New → Blueprint** e escolha este repositório.
