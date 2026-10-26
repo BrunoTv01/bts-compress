@@ -1,0 +1,57 @@
+#cloud-config
+# Instalação automática do Ubuntu Server 24.04 + BTS Compress.
+# Usuário do Linux: suporte / senha: admin  (troque com "passwd" depois)
+autoinstall:
+  version: 1
+  locale: pt_BR.UTF-8
+  keyboard:
+    layout: br
+  timezone: America/Sao_Paulo
+  identity:
+    hostname: bts-compress
+    realname: Suporte BTS Compress
+    username: suporte
+    password: "$6$btscomp$WVVRW0ooPEwSmNUC.TpbAisrDzxmdoSXbXAPFsW14QZJTLQ.Q4ocKID7dvMI0OliqjNz1wd4ZP6wzvPoUUy2N."
+  ssh:
+    install-server: true
+    allow-pw: true
+  storage:
+    layout:
+      name: lvm
+  packages:
+    - curl
+    - ca-certificates
+    - rsync
+    - openssl
+    - postgresql
+  late-commands:
+    # copia o pacote do BTS Compress que veio na ISO para o disco instalado
+    - mkdir -p /target/opt/bts-compress-iso
+    - sh -c 'for d in /cdrom/nocloud /cdrom; do [ -f $d/bts-compress.tar.gz ] && cp $d/bts-compress.tar.gz /target/opt/bts-compress-iso/ && exit 0; done; mkdir -p /mnt/seed && mount -o ro LABEL=CIDATA /mnt/seed && cp /mnt/seed/bts-compress.tar.gz /target/opt/bts-compress-iso/; umount /mnt/seed; true'
+  user-data:
+    # roda uma vez, no primeiro boot do sistema instalado (precisa de internet para Node.js)
+    write_files:
+      - path: /usr/local/sbin/bts-compress-primeiro-boot
+        permissions: "0755"
+        content: |
+          #!/bin/bash
+          exec >>/var/log/bts-compress-instalacao.log 2>&1
+          echo "== $(date) instalando BTS Compress"
+          for i in $(seq 1 60); do curl -fsS -m 5 https://deb.nodesource.com >/dev/null 2>&1 && break; sleep 5; done
+          if [ -f /opt/bts-compress-iso/bts-compress.tar.gz ]; then
+            cd /opt/bts-compress-iso && tar xzf bts-compress.tar.gz && cd bts-compress && ./deploy/install.sh
+          else
+            curl -fsSL https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh | bash
+          fi
+          IP=$(hostname -I | awk '{print $1}')
+          cat > /etc/issue <<TXT
+          Ubuntu \\n \\l
+
+            BTS Compress pronto:  http://\\4:3000
+            Login do sistema:     admin  /  senha: admin  (troca no 1o acesso)
+            Login do Linux:       suporte  /  senha: admin
+
+          TXT
+          echo "== $(date) concluído: http://$IP:3000"
+    runcmd:
+      - [bash, /usr/local/sbin/bts-compress-primeiro-boot]

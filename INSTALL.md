@@ -37,6 +37,12 @@ Se o servidor não tiver o `curl`: `sudo apt install curl` (Ubuntu/Debian) ou `s
 
 ---
 
+## Máquina virtual: ISO que instala tudo
+
+Para criar uma VM do zero, sem digitar comandos, use a ISO de instalação automática. Ela instala o Ubuntu Server 24.04, o PostgreSQL e o BTS Compress. Veja **[deploy/iso/LEIA-ME.md](deploy/iso/LEIA-ME.md)**.
+
+---
+
 ## Opção A: script de instalação (passo a passo)
 
 ### 1. Copie o projeto para o servidor
