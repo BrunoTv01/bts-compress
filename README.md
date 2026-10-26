@@ -23,8 +23,10 @@ Veja **[INSTALL.md](INSTALL.md)**. Resumo:
 
 ```bash
 git clone https://github.com/BrunoTv01/bts-compress.git && cd bts-compress
-sudo ./deploy/install.sh --senha SenhaInicial123
+sudo ./deploy/install.sh
 ```
+
+Depois abra o endereço mostrado e entre com **login `admin` e senha `admin`**. O sistema pede uma senha nova no primeiro acesso.
 
 Também há uma opção com Docker: `docker compose up -d`, sem precisar configurar nada.
 
@@ -56,7 +58,7 @@ npm install
 sudo npm start
 ```
 
-Na primeira vez ele cria o usuário e o banco `bts` com uma senha aleatória, carrega a planilha, cria o usuário `admin` e mostra a senha inicial no terminal. A configuração fica salva no arquivo `.env` da pasta, e nas próximas vezes ele já sabe onde está o banco.
+Na primeira vez ele cria o usuário e o banco `bts` com uma senha aleatória, carrega a planilha e cria o usuário `admin` com senha `admin`. A configuração fica salva no arquivo `.env` da pasta, e nas próximas vezes ele já sabe onde está o banco.
 
 Como o sistema procura o banco, nesta ordem:
 
@@ -74,7 +76,7 @@ Abra http://localhost:3000.
 | Variável       | Uso                                                        |
 |----------------|------------------------------------------------------------|
 | `DATABASE_URL` | Opcional. Conexão do PostgreSQL; sem ela o sistema procura e configura o banco sozinho |
-| `ADMIN_TOKEN`  | Opcional. Senha inicial do usuário `admin`; sem ela uma senha é gerada e mostrada no log |
+| `ADMIN_TOKEN`  | Opcional. Outra senha inicial para o `admin`; sem ela a senha inicial é `admin` |
 | `ADMIN_RESET_PASSWORD` | Opcional. Redefine a senha do `admin` ao iniciar. Use para recuperar o acesso e apague depois |
 | `PGSSL`        | `true` para conectar com SSL (banco externo ao Render)     |
 | `PORT`         | Porta HTTP (o Render define sozinho)                       |
@@ -114,9 +116,10 @@ Para recarregar os dados originais, apague as tabelas e reinicie o serviço.
 - Senhas guardadas com **scrypt** e sal aleatório; nunca em texto.
 - Sessão por cookie `HttpOnly` e `SameSite=Strict`, que expira em 12 h ou após 2 h sem uso. Atrás de HTTPS o cookie é marcado `Secure`.
 - Bloqueio de 10 min após 5 senhas erradas no mesmo usuário (ou 20 no mesmo IP).
+- Toda instalação nova começa com login `admin` e senha `admin`. Essa senha só serve uma vez: no primeiro acesso o sistema exige uma senha nova, e a padrão deixa de funcionar.
 - Senha nova obrigatória no primeiro acesso e depois de uma redefinição; mínimo de 8 caracteres com letras e números.
 - Desativar um usuário ou redefinir a senha dele encerra as sessões abertas na hora.
 - Sempre existe pelo menos um Admin ativo; ninguém consegue excluir, desativar ou rebaixar o próprio usuário.
 - Todo login, falha de login, troca de senha e alteração de dados vai para o Histórico com o nome do usuário.
 
-Perdeu o acesso de admin? No servidor: `sudo /opt/bts-compress/deploy/reset-senha.sh admin NovaSenha123`. No Render, use a variável `ADMIN_RESET_PASSWORD` (veja “Rodar no Render”).
+Perdeu o acesso de admin? No servidor: `sudo /opt/bts-compress/deploy/reset-senha.sh` volta o login para `admin` / `admin` (com troca obrigatória no próximo acesso). No Render, use a variável `ADMIN_RESET_PASSWORD` (veja “Rodar no Render”).

@@ -1,7 +1,6 @@
 # BTS Compress com PostgreSQL. Não precisa configurar nada:
 #   docker compose up -d
-#   docker compose logs app | grep "Senha inicial"     (senha do usuário admin)
-# Abra http://IP-DO-SERVIDOR:3000
+# Abra http://IP-DO-SERVIDOR:3000  ·  login admin / senha admin (troca no 1º acesso)
 #
 # Opcional: crie um arquivo .env (veja .env.example) para escolher a senha inicial ou a porta.
 services:
@@ -29,7 +28,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://bts:${DB_PASSWORD:-bts-rede-interna}@db:5432/bts
-      # vazio = o sistema gera uma senha para o admin e mostra no log
+      # vazio = senha inicial "admin"
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
     ports:
       - "${PORT:-3000}:3000"

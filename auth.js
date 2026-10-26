@@ -10,6 +10,7 @@ const MAX_FAILS = 5;                                   // tentativas erradas ant
 const LOCK_MINUTES = 10;                               // tempo de bloqueio
 const COOKIE = 'bts_sid';
 const MIN_PASSWORD = 8;
+const DEFAULT_PASSWORD = 'admin';                    // senha padrão do primeiro acesso
 
 const als = new AsyncLocalStorage();
 const who = () => als.getStore()?.user?.username || null;
@@ -110,10 +111,10 @@ function setup(app, pool) {
     let id;
     if (rows.length) {
       id = rows[0].id;
-      await pool.query("UPDATE users SET password_hash=$1, must_change=true, active=true, role='admin' WHERE id=$2", [hashPassword('admin'), id]);
+      await pool.query("UPDATE users SET password_hash=$1, must_change=true, active=true, role='admin' WHERE id=$2", [hashPassword(DEFAULT_PASSWORD), id]);
       await pool.query('DELETE FROM sessions WHERE user_id=$1', [id]);
     } else {
-      const r = await pool.query("INSERT INTO users (username,name,role,password_hash,must_change) VALUES ('admin','Administrador','admin',$1,true) RETURNING id", [hashPassword('admin')]);
+      const r = await pool.query("INSERT INTO users (username,name,role,password_hash,must_change) VALUES ('admin','Administrador','admin',$1,true) RETURNING id", [hashPassword(DEFAULT_PASSWORD)]);
       id = r.rows[0].id;
     }
     fails.delete('u:admin');
@@ -127,10 +128,12 @@ function setup(app, pool) {
     const { rows } = await pool.query('SELECT count(*)::int AS n FROM users');
     if (rows[0].n > 0) return recover();
     const initial = (process.env.ADMIN_TOKEN || '').trim().replace(/^["']|["']$/g, '');
-    const pw = initial || crypto.randomBytes(9).toString('base64').replace(/[+/=]/g, '').slice(0, 12) + '7a';
+    const pw = initial || DEFAULT_PASSWORD;
     await pool.query("INSERT INTO users (username,name,role,password_hash,must_change) VALUES ('admin','Administrador','admin',$1,true)", [hashPassword(pw)]);
     console.log('Usuário inicial criado: admin');
-    console.log(initial ? 'Senha inicial: o valor de ADMIN_TOKEN. Troque no primeiro acesso.' : `Senha inicial: ${pw}  (troque no primeiro acesso)`);
+    console.log(initial ? 'Senha inicial: o valor de ADMIN_TOKEN. Troque no primeiro acesso.' : `Login: admin  Senha: ${DEFAULT_PASSWORD}  (o sistema pede uma senha nova no primeiro acesso)`);
+    // instalação nova já começa no padrão: a recuperação única não deve trocar a senha escolhida em ADMIN_TOKEN
+    await audit('users', '-', DEFAULT_RESET, null, null, 'Instalação nova', 'servidor');
     return recover();
   }
 
@@ -324,4 +327,4 @@ function setup(app, pool) {
   return { requireRole, bootstrap, audit };
 }
 
-module.exports = { setup, hashPassword, verifyPassword, passwordProblem, who, ROLES };
+module.exports = { setup, hashPassword, verifyPassword, passwordProblem, who, ROLES, DEFAULT_PASSWORD };

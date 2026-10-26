@@ -11,7 +11,7 @@ Duas formas de instalar. Escolha uma.
 
 Requisitos mínimos: 1 CPU, 1 GB de RAM, 2 GB de disco e acesso à internet durante a instalação (para baixar Node.js, PostgreSQL e as duas bibliotecas do sistema).
 
-Versão atual: **1.2.0**, que encontra e configura o banco sozinho, com login de usuários, perfis, cadastro de serviços e equipamentos, inclusão e exclusão de linhas e a tela de entrada animada.
+Versão atual: **1.3.0**: login padrão `admin` / `admin`, encontra e configura o banco sozinho, com login de usuários, perfis, cadastro de serviços e equipamentos, inclusão e exclusão de linhas e a tela de entrada animada.
 
 ---
 
@@ -34,25 +34,29 @@ tar xzf bts-compress.tar.gz
 cd bts-compress-main
 ```
 
-Se o servidor não tiver acesso ao GitHub, copie o arquivo `bts-compress-1.2.0.tar.gz` para ele (por `scp` ou pendrive) e extraia:
+Se o servidor não tiver acesso ao GitHub, copie o arquivo `bts-compress-1.3.0.tar.gz` para ele (por `scp` ou pendrive) e extraia:
 
 ```bash
-tar xzf bts-compress-1.2.0.tar.gz
+tar xzf bts-compress-1.3.0.tar.gz
 cd bts-compress
 ```
 
 ### 2. Rode o instalador
 
 ```bash
-sudo ./deploy/install.sh --senha SenhaInicial123
+sudo ./deploy/install.sh
 ```
 
-No final aparecem o endereço do sistema, o login `admin` e a senha inicial. Se você não passar `--senha`, uma senha é gerada e mostrada.
+No final aparece o endereço do sistema.
+
+| Login | Senha |
+|---|---|
+| `admin` | `admin` |
 
 ### 3. Primeiro acesso
 
-1. Abra o endereço no navegador e entre com o usuário **admin** e a senha inicial.
-2. O sistema pede uma senha nova, só sua.
+1. Abra o endereço no navegador e entre com login **admin** e senha **admin**.
+2. O sistema pede uma senha nova, só sua. A senha `admin` deixa de funcionar.
 3. Na aba **Usuários**, cadastre as outras pessoas com o perfil certo:
    - **Leitura**: só consulta.
    - **Editor**: inclui, exclui e altera dados.
@@ -64,7 +68,7 @@ Opções do instalador:
 
 | Opção | O que faz |
 |---|---|
-| `--senha S` | Senha inicial do usuário `admin`. Em uma reinstalação, redefine a senha do `admin` |
+| `--senha S` | Usa outra senha inicial em vez de `admin`. Em uma reinstalação, redefine a senha do `admin` |
 | `--porta N` | Porta do sistema (padrão 3000) |
 | `--nginx` | Publica na porta 80 através do nginx. O sistema passa a aceitar conexões só pelo nginx |
 | `--dominio nome` | Nome do servidor no nginx, por exemplo `bts.cultura.local` |
@@ -74,7 +78,7 @@ Exemplos:
 
 ```bash
 # na porta 80, com nginx
-sudo ./deploy/install.sh --nginx --senha SuaSenha
+sudo ./deploy/install.sh --nginx
 
 # usando um PostgreSQL de outro servidor
 sudo DATABASE_URL=postgres://usuario:senha@10.0.0.5:5432/bts ./deploy/install.sh --sem-banco
@@ -99,7 +103,7 @@ sudo systemctl status bts-compress      # está rodando?
 sudo systemctl restart bts-compress     # reiniciar
 sudo journalctl -u bts-compress -f      # ver o log ao vivo
 sudo nano /etc/bts-compress.env         # mudar porta (depois reinicie)
-sudo /opt/bts-compress/deploy/reset-senha.sh admin NovaSenha123   # recuperar acesso de um usuário
+sudo /opt/bts-compress/deploy/reset-senha.sh             # admin volta para admin / admin
 ```
 
 ### Backup
@@ -122,7 +126,7 @@ sudo ./deploy/update.sh
 
 O `update.sh` faz backup do banco, copia os arquivos novos e reinicia. Mudanças na estrutura do banco são aplicadas sozinhas, sem perder dados.
 
-**Vindo de uma versão sem login (1.0):** depois do `update.sh`, a tela de login aparece. Entre com o usuário `admin` e a mesma senha que você usava para editar (a do `--senha` da instalação). O sistema pede uma senha nova e, a partir daí, você cadastra as outras pessoas na aba **Usuários**. Para ver a senha antiga: `sudo grep ADMIN_TOKEN /etc/bts-compress.env`.
+**Vindo de uma versão sem login (1.0):** depois do `update.sh`, a tela de login aparece. Entre com o usuário `admin` e a mesma senha que você usava para editar (a do `--senha` da instalação); se não tinha passado `--senha`, use `admin`. O sistema pede uma senha nova e, a partir daí, você cadastra as outras pessoas na aba **Usuários**. Para ver a senha antiga: `sudo grep ADMIN_TOKEN /etc/bts-compress.env`.
 
 ### Desinstalar
 
@@ -143,10 +147,9 @@ Requer Docker e o plugin `docker compose`. Não precisa configurar banco nem sen
 git clone https://github.com/BrunoTv01/bts-compress.git
 cd bts-compress
 docker compose up -d --build
-docker compose logs app | grep "Senha inicial"     # senha do usuário admin
 ```
 
-Abra `http://IP-DO-SERVIDOR:3000` e entre com o usuário `admin` e essa senha. O sistema pede uma senha nova no primeiro acesso.
+Abra `http://IP-DO-SERVIDOR:3000` e entre com login `admin` e senha `admin`. O sistema pede uma senha nova no primeiro acesso.
 
 Se quiser escolher a senha inicial ou a porta, copie `.env.example` para `.env` e preencha antes do `up`.
 
@@ -154,7 +157,7 @@ Se quiser escolher a senha inicial ou a porta, copie `.env.example` para `.env` 
 docker compose logs -f app                                              # log
 docker compose exec db pg_dump -U bts bts | gzip > bts-backup.sql.gz    # backup
 git pull && docker compose up -d --build                                # atualizar
-docker compose exec app node tools/reset-password.js admin NovaSenha123 # recuperar acesso
+docker compose exec app node tools/reset-password.js                   # admin volta para admin / admin
 ```
 
 Os dados ficam no volume `bts-db` e não se perdem ao atualizar ou reiniciar.
@@ -165,7 +168,7 @@ Os dados ficam no volume `bts-db` e não se perdem ao atualizar ou reiniciar.
 
 **A página não abre de outro computador.** Confira se a porta está liberada no firewall da rede. O instalador libera no `ufw` e no `firewalld` do próprio servidor, mas não em firewalls externos.
 
-**"Usuário ou senha incorretos".** Um admin pode redefinir a senha na aba **Usuários**. Se ninguém consegue entrar, use no servidor `sudo /opt/bts-compress/deploy/reset-senha.sh admin NovaSenha123`.
+**"Usuário ou senha incorretos".** Um admin pode redefinir a senha na aba **Usuários**. Se ninguém consegue entrar, rode no servidor `sudo /opt/bts-compress/deploy/reset-senha.sh`: o login volta a ser `admin` / `admin`.
 
 **"Muitas tentativas erradas".** Depois de 5 senhas erradas o usuário fica bloqueado por 10 minutos. Espere ou reinicie o serviço com `sudo systemctl restart bts-compress`.
 

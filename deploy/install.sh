@@ -2,13 +2,13 @@
 # Instala o BTS Compress num servidor Linux (Ubuntu, Debian, Rocky, Alma, RHEL, CentOS Stream).
 #
 # Uso (como root, dentro da pasta do projeto):
-#   sudo ./deploy/install.sh                       # instala e sobe na porta 3000
+#   sudo ./deploy/install.sh                       # instala e sobe na porta 3000 (login admin / senha admin)
 #   sudo ./deploy/install.sh --nginx               # também publica na porta 80 via nginx
 #   sudo ./deploy/install.sh --port 8080 --senha MinhaSenha
 #
 # Opções:
 #   --porta N | --port N   porta do sistema (padrão 3000)
-#   --senha S              senha inicial do usuário admin (padrão: gerada e mostrada no final)
+#   --senha S              outra senha inicial para o admin (padrão: admin; troca exigida no 1º acesso)
 #   --nginx                instala nginx como proxy na porta 80
 #   --dominio NOME         nome do servidor no nginx (padrão: _ , qualquer nome)
 #   --sem-banco            não instala PostgreSQL; use DATABASE_URL já existente (variável de ambiente)
@@ -118,7 +118,6 @@ if [ -f "$ENV_FILE" ]; then
 else
   FIRST=1
   DB_PASS="$(openssl rand -hex 16)"
-  [ -n "$SENHA" ] || SENHA="$(openssl rand -base64 12 | tr -d '/+=' | cut -c1-10)7k"
   if [ "$SEM_BANCO" -eq 1 ]; then
     [ -n "${DATABASE_URL:-}" ] || fail "Com --sem-banco, defina DATABASE_URL antes de rodar o script."
     DBURL="$DATABASE_URL"
@@ -131,6 +130,7 @@ else
 PORT=$PORT
 HOST=$([ "$NGINX" -eq 1 ] && echo 127.0.0.1 || echo 0.0.0.0)
 DATABASE_URL=$DBURL
+# Senha inicial do admin. Vazio = "admin". Só vale enquanto não existe nenhum usuário.
 ADMIN_TOKEN=$SENHA
 NODE_ENV=production
 EOF
@@ -194,13 +194,14 @@ echo
 ok "BTS Compress instalado"
 echo "   Endereço:          $URL"
 if [ "$FIRST" -eq 1 ]; then
+  INI="$(sed -n 's/^ADMIN_TOKEN=//p' "$ENV_FILE")"
   echo "   Login:             admin"
-  echo "   Senha inicial:     $(sed -n 's/^ADMIN_TOKEN=//p' "$ENV_FILE")   (o sistema pede uma senha nova no primeiro acesso)"
+  echo "   Senha:             ${INI:-admin}   (o sistema pede uma senha nova no primeiro acesso)"
 elif [ "$RESET_ADMIN" -eq 1 ]; then
   echo "   Login:             admin"
   echo "   Senha provisória:  $SENHA   (o sistema pede uma senha nova no próximo acesso)"
 fi
-echo "   Esqueceu a senha:  sudo $APP_DIR/deploy/reset-senha.sh admin NovaSenha123"
+echo "   Esqueceu a senha:  sudo $APP_DIR/deploy/reset-senha.sh   (volta para admin / admin)"
 echo "   Configuração:      $ENV_FILE"
 echo "   Ver log:           journalctl -u $APP -f"
 echo "   Reiniciar:         systemctl restart $APP"
