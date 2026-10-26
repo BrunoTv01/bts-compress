@@ -33,6 +33,10 @@ Depois abra o endereço mostrado e entre com **login `admin` e senha `admin`**. 
 
 Também há uma opção com Docker (`docker compose up -d`) uma **ISO para máquina virtual** ([deploy/iso](deploy/iso/LEIA-ME.md)) e um **criador de VM no VirtualBox** com dois cliques ([deploy/vm](deploy/vm/LEIA-ME.md)).
 
+## Instalar no Windows
+
+Dois cliques em **[deploy/windows/Instalar-BTS-Compress.bat](deploy/windows/LEIA-ME.md)**. Instala Node.js, PostgreSQL e o sistema direto no Windows 10/11, liga junto com o Windows e cria o atalho na Área de Trabalho.
+
 ## Baixar
 
 | O quê | Link |
