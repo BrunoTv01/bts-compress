@@ -43,6 +43,7 @@ done
 
 ok()   { printf '\033[32m✔\033[0m %s\n' "$*"; }
 info() { printf '\033[36m→\033[0m %s\n' "$*"; }
+warn() { printf '\033[33m! %s\033[0m\n' "$*" >&2; }
 fail() { printf '\033[31m✖ %s\033[0m\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || fail "Rode como root: sudo $0 $*"
@@ -64,18 +65,41 @@ case "${ID} ${ID_LIKE:-}" in
 esac
 info "Sistema: $PRETTY_NAME"
 
-pkg_install() {
-  if [ "$FAM" = deb ]; then DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@" >/dev/null
-  else dnf install -y -q "$@" >/dev/null; fi
+# Ubuntu recém-instalado atualiza sozinho em segundo plano e trava o apt por alguns minutos.
+# Em vez de falhar, espera essa atualização terminar (até 20 min).
+APT_OPTS=(-o DPkg::Lock::Timeout=1200 -o Acquire::Retries=3)
+wait_apt() {
+  [ "$FAM" = deb ] || return 0
+  command -v fuser >/dev/null || return 0
+  local avisou=0 n=0
+  while fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock >/dev/null 2>&1; do
+    [ $avisou = 1 ] || { info "O Ubuntu está instalando atualizações em segundo plano. Aguardando terminar (pode levar alguns minutos)..."; avisou=1; }
+    n=$((n+1)); [ $n -lt 240 ] || { warn "A atualização automática não terminou em 20 min. Tentando assim mesmo."; break; }
+    sleep 5
+  done
+  [ $avisou = 0 ] || ok "Atualização automática do Ubuntu terminou"
 }
-[ "$FAM" = deb ] && { info "Atualizando lista de pacotes"; apt-get update -qq; }
+pkg_install() {
+  wait_apt
+  if [ "$FAM" = deb ]; then
+    DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTS[@]}" install -y -qq "$@" </dev/null >/dev/null \
+      || fail "Não consegui instalar: $*. Rode 'sudo apt-get install $*' para ver o erro."
+  else dnf install -y -q "$@" </dev/null >/dev/null || fail "Não consegui instalar: $*"; fi
+}
+if [ "$FAM" = deb ]; then
+  info "Atualizando lista de pacotes"
+  wait_apt
+  apt-get "${APT_OPTS[@]}" update -qq </dev/null \
+    || warn "A atualização da lista de pacotes deu erro (veja acima). Continuando com a lista atual."
+fi
 pkg_install curl ca-certificates openssl rsync
 
 # ---------- Node.js ----------
 node_major() { command -v node >/dev/null && node -p 'process.versions.node.split(".")[0]' || echo 0; }
 if [ "$(node_major)" -lt "$NODE_MIN" ]; then
   info "Instalando Node.js 22 (NodeSource)"
-  if [ "$FAM" = deb ]; then curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
+  wait_apt
+  if [ "$FAM" = deb ]; then curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null || warn "Repositório NodeSource falhou; tentando o Node.js do Ubuntu"
   else curl -fsSL https://rpm.nodesource.com/setup_22.x | bash - >/dev/null; fi
   pkg_install nodejs
 fi

@@ -24,10 +24,15 @@ main() {
 
   [ "$(id -u)" -eq 0 ] || fail "Rode como root. Ex.: curl -fsSL https://raw.githubusercontent.com/$REPO/main/instalar.sh | sudo bash"
   # Ubuntu Desktop vem sem curl: tenta instalar; se não der, usa o wget
+  # (nada aqui pode derrubar o instalador: se o apt estiver ocupado, segue com o wget)
   if ! command -v curl >/dev/null; then
-    if command -v apt-get >/dev/null; then apt-get update -qq </dev/null >/dev/null 2>&1; apt-get install -y -qq curl </dev/null >/dev/null 2>&1 || true
+    if command -v apt-get >/dev/null; then
+      info "Instalando o curl (se o Ubuntu estiver se atualizando, aguarda terminar)"
+      apt-get -o DPkg::Lock::Timeout=600 update -qq </dev/null >/dev/null 2>&1 || true
+      DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 install -y -qq curl </dev/null >/dev/null 2>&1 || true
     elif command -v dnf >/dev/null; then dnf install -y -q curl </dev/null >/dev/null 2>&1 || true; fi
   fi
+  command -v curl >/dev/null || command -v wget >/dev/null || fail "Não há curl nem wget. Rode: sudo apt-get install -y curl"
   baixar() { if command -v curl >/dev/null; then curl -fsSL "$1" -o "$2"; else wget -q "$1" -O "$2"; fi; }
   command -v tar  >/dev/null || fail "O comando tar não está instalado."
 
