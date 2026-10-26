@@ -48,6 +48,8 @@ O `ADMIN_TOKEN` só vale na primeira vez que o banco é criado. Mudar essa vari�
 3. Entre com **admin** e a senha nova e crie a sua senha definitiva.
 4. Apague `ADMIN_RESET_PASSWORD` do painel. Cada valor só é aplicado uma vez; para redefinir de novo, use um valor diferente.
 
+**Levar os dados do Render para o servidor local:** `sudo /opt/bts-compress/deploy/importar-banco.sh "EXTERNAL_DATABASE_URL"` (veja INSTALL.md).
+
 ## Rodar sem configurar o banco
 
 O sistema encontra o PostgreSQL sozinho. Basta ter o PostgreSQL instalado na máquina:

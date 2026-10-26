@@ -11,7 +11,7 @@ Duas formas de instalar. Escolha uma.
 
 Requisitos mínimos: 1 CPU, 1 GB de RAM, 2 GB de disco e acesso à internet durante a instalação (para baixar Node.js, PostgreSQL e as duas bibliotecas do sistema).
 
-Versão atual: **1.3.0**: login padrão `admin` / `admin`, encontra e configura o banco sozinho, com login de usuários, perfis, cadastro de serviços e equipamentos, inclusão e exclusão de linhas e a tela de entrada animada.
+Versão atual: **1.4.0**: importa os dados do Render; login padrão `admin` / `admin`, encontra e configura o banco sozinho, com login de usuários, perfis, cadastro de serviços e equipamentos, inclusão e exclusão de linhas e a tela de entrada animada.
 
 ---
 
@@ -34,10 +34,10 @@ tar xzf bts-compress.tar.gz
 cd bts-compress-main
 ```
 
-Se o servidor não tiver acesso ao GitHub, copie o arquivo `bts-compress-1.3.0.tar.gz` para ele (por `scp` ou pendrive) e extraia:
+Se o servidor não tiver acesso ao GitHub, copie o arquivo `bts-compress-1.4.0.tar.gz` para ele (por `scp` ou pendrive) e extraia:
 
 ```bash
-tar xzf bts-compress-1.3.0.tar.gz
+tar xzf bts-compress-1.4.0.tar.gz
 cd bts-compress
 ```
 
@@ -127,6 +127,21 @@ sudo ./deploy/update.sh
 O `update.sh` faz backup do banco, copia os arquivos novos e reinicia. Mudanças na estrutura do banco são aplicadas sozinhas, sem perder dados.
 
 **Vindo de uma versão sem login (1.0):** depois do `update.sh`, a tela de login aparece. Entre com o usuário `admin` e a mesma senha que você usava para editar (a do `--senha` da instalação); se não tinha passado `--senha`, use `admin`. O sistema pede uma senha nova e, a partir daí, você cadastra as outras pessoas na aba **Usuários**. Para ver a senha antiga: `sudo grep ADMIN_TOKEN /etc/bts-compress.env`.
+
+### Trazer os dados do Render (ou de outro PostgreSQL)
+
+Se vocês já usaram o sistema no Render e querem continuar no servidor local com os mesmos dados, usuários e senhas:
+
+1. No Render, abra **bts-compress-db → Connect** e copie o **External Database URL**.
+2. No servidor, com o sistema já instalado, rode (com o endereço entre aspas):
+
+   ```bash
+   sudo /opt/bts-compress/deploy/importar-banco.sh "postgresql://...render.com/bts"
+   ```
+
+O script faz backup do banco local, baixa tudo do Render, grava no banco local e reinicia o sistema. Se der erro no meio, ele volta o banco local como estava. A cópia baixada fica em `/var/backups/bts-compress`.
+
+Depois da importação, o banco local passa a ser o principal. Alterações feitas no Render a partir daí não vêm junto; para trazer de novo, rode o script outra vez (ele substitui os dados locais).
 
 ### Desinstalar
 
