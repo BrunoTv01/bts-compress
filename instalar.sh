@@ -19,12 +19,17 @@ info() { printf '\033[36m→\033[0m %s\n' "$*"; }
 fail() { printf '\033[31m✖ %s\033[0m\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || fail "Rode como root. Ex.: curl -fsSL https://raw.githubusercontent.com/$REPO/main/instalar.sh | sudo bash"
-command -v curl >/dev/null || { command -v apt-get >/dev/null && apt-get install -y -qq curl >/dev/null || dnf install -y -q curl >/dev/null; }
+# Ubuntu Desktop vem sem curl: tenta instalar; se não der, usa o wget
+if ! command -v curl >/dev/null; then
+  if command -v apt-get >/dev/null; then apt-get update -qq >/dev/null 2>&1; apt-get install -y -qq curl >/dev/null 2>&1 || true
+  elif command -v dnf >/dev/null; then dnf install -y -q curl >/dev/null 2>&1 || true; fi
+fi
+baixar() { if command -v curl >/dev/null; then curl -fsSL "$1" -o "$2"; else wget -q "$1" -O "$2"; fi; }
 command -v tar  >/dev/null || fail "O comando tar não está instalado."
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 info "Baixando o BTS Compress ($BRANCH)"
-curl -fsSL "$URL" -o "$TMP/bts.tar.gz" || fail "Não consegui baixar de $URL. O servidor tem acesso à internet?"
+baixar "$URL" "$TMP/bts.tar.gz" || fail "Não consegui baixar de $URL. O servidor tem acesso à internet?"
 tar xzf "$TMP/bts.tar.gz" -C "$TMP"
 SRC="$(find "$TMP" -maxdepth 1 -type d -name 'bts-compress-*' | head -1)"
 [ -f "$SRC/deploy/install.sh" ] || fail "O arquivo baixado não tem o instalador."

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Instalar BTS Compress
+Name[pt_BR]=Instalar BTS Compress
+Comment=Baixa e instala o BTS Compress com PostgreSQL local
+Icon=system-software-install
+Terminal=false
+Exec=x-terminal-emulator -e bash -c "echo; echo '  Instalando o BTS Compress. Digite a senha do seu usuario quando pedir.'; echo; (curl -fsSL https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh 2>/dev/null || wget -qO- https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh) | sudo bash && (sleep 2; xdg-open http://localhost:3000 >/dev/null 2>&1 &); echo; read -p '  Aperte Enter para fechar esta janela' x"
+Categories=System;

@@ -25,6 +25,8 @@ Um comando só, no terminal do servidor. Ele baixa o sistema, instala o PostgreS
 curl -fsSL https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh | sudo bash
 ```
 
+No Ubuntu com tela gráfica dá para instalar **com um clique**: baixe [deploy/clique/Instalar-BTS-Compress.desktop](deploy/clique/LEIA-ME.md), permita a execução e dê dois cliques.
+
 O mesmo comando também **atualiza** um sistema já instalado, com backup antes e sem perder dados. Detalhes em **[INSTALL.md](INSTALL.md)**.
 
 Depois abra o endereço mostrado e entre com **login `admin` e senha `admin`**. O sistema pede uma senha nova no primeiro acesso.
