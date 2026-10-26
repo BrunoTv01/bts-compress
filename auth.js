@@ -74,15 +74,38 @@ function setup(app, pool) {
       [tbl, String(id), field, oldV, newV, ctx, username ?? who()]);
   }
 
+  // Recupera o acesso sem terminal (ex.: Render): se ADMIN_RESET_PASSWORD estiver definido,
+  // redefine a senha do usuário admin (ou o cria) ao iniciar. Remova a variável depois de entrar.
+  async function resetFromEnv() {
+    const pw = (process.env.ADMIN_RESET_PASSWORD || '').trim().replace(/^["']|["']$/g, '');
+    if (!pw) return;
+    const problem = passwordProblem(pw, 'admin');
+    if (problem) { console.log(`ADMIN_RESET_PASSWORD ignorado: ${problem}`); return; }
+    const { rows } = await pool.query("SELECT id FROM users WHERE username = 'admin'");
+    let id;
+    if (rows.length) {
+      id = rows[0].id;
+      await pool.query("UPDATE users SET password_hash=$1, must_change=true, active=true, role='admin' WHERE id=$2", [hashPassword(pw), id]);
+      await pool.query('DELETE FROM sessions WHERE user_id=$1', [id]);
+    } else {
+      const r = await pool.query("INSERT INTO users (username,name,role,password_hash,must_change) VALUES ('admin','Administrador','admin',$1,true) RETURNING id", [hashPassword(pw)]);
+      id = r.rows[0].id;
+    }
+    fails.delete('u:admin');
+    await audit('users', id, 'senha redefinida', null, null, 'Pela variável ADMIN_RESET_PASSWORD', 'servidor');
+    console.log('Senha do usuário admin redefinida pela variável ADMIN_RESET_PASSWORD. Entre, troque a senha e remova essa variável do painel.');
+  }
+
   // Cria o primeiro administrador se ainda não houver usuários
   async function bootstrap() {
     const { rows } = await pool.query('SELECT count(*)::int AS n FROM users');
-    if (rows[0].n > 0) return;
+    if (rows[0].n > 0) return resetFromEnv();
     const initial = (process.env.ADMIN_TOKEN || '').trim().replace(/^["']|["']$/g, '');
     const pw = initial || crypto.randomBytes(9).toString('base64').replace(/[+/=]/g, '').slice(0, 12) + '7a';
     await pool.query("INSERT INTO users (username,name,role,password_hash,must_change) VALUES ('admin','Administrador','admin',$1,true)", [hashPassword(pw)]);
     console.log('Usuário inicial criado: admin');
     console.log(initial ? 'Senha inicial: o valor de ADMIN_TOKEN. Troque no primeiro acesso.' : `Senha inicial: ${pw}  (troque no primeiro acesso)`);
+    return resetFromEnv();
   }
 
   // Lê a sessão do cookie em todas as rotas /api

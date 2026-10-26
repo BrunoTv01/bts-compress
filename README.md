@@ -37,6 +37,15 @@ Também há uma opção com Docker: `docker compose up -d`, sem precisar configu
 
 Entre no site com o usuário **admin** e essa senha. O sistema pede uma senha nova no primeiro acesso. Depois, cadastre as outras pessoas na aba **Usuários**.
 
+O `ADMIN_TOKEN` só vale na primeira vez que o banco é criado. Mudar essa variável depois não muda a senha.
+
+**Senha incorreta no Render?** O plano gratuito não tem terminal, então a senha é redefinida pelo painel:
+
+1. Em **bts-compress → Environment**, adicione a variável `ADMIN_RESET_PASSWORD` com uma senha nova (8+ caracteres, letras e números, sem a palavra "admin").
+2. Salve. O Render reinicia o serviço e a senha do `admin` passa a ser essa.
+3. Entre com **admin** e a senha nova e crie a sua senha definitiva.
+4. **Apague `ADMIN_RESET_PASSWORD` do painel.** Enquanto ela existir, a senha do `admin` volta a ser redefinida toda vez que o serviço reinicia.
+
 ## Rodar sem configurar o banco
 
 O sistema encontra o PostgreSQL sozinho. Basta ter o PostgreSQL instalado na máquina:
@@ -66,6 +75,7 @@ Abra http://localhost:3000.
 |----------------|------------------------------------------------------------|
 | `DATABASE_URL` | Opcional. Conexão do PostgreSQL; sem ela o sistema procura e configura o banco sozinho |
 | `ADMIN_TOKEN`  | Opcional. Senha inicial do usuário `admin`; sem ela uma senha é gerada e mostrada no log |
+| `ADMIN_RESET_PASSWORD` | Opcional. Redefine a senha do `admin` ao iniciar. Use para recuperar o acesso e apague depois |
 | `PGSSL`        | `true` para conectar com SSL (banco externo ao Render)     |
 | `PORT`         | Porta HTTP (o Render define sozinho)                       |
 
@@ -109,4 +119,4 @@ Para recarregar os dados originais, apague as tabelas e reinicie o serviço.
 - Sempre existe pelo menos um Admin ativo; ninguém consegue excluir, desativar ou rebaixar o próprio usuário.
 - Todo login, falha de login, troca de senha e alteração de dados vai para o Histórico com o nome do usuário.
 
-Perdeu o acesso de admin? No servidor: `sudo /opt/bts-compress/deploy/reset-senha.sh admin NovaSenha123`.
+Perdeu o acesso de admin? No servidor: `sudo /opt/bts-compress/deploy/reset-senha.sh admin NovaSenha123`. No Render, use a variável `ADMIN_RESET_PASSWORD` (veja “Rodar no Render”).
