@@ -37,6 +37,10 @@ Se o servidor não tiver o `curl`: `sudo apt install curl` (Ubuntu/Debian) ou `s
 
 ---
 
+## Máquina virtual pronta (VirtualBox no Windows)
+
+Dois cliques em `deploy\vm\criar-vm.bat`: ele baixa o Ubuntu, cria a VM e instala tudo. Veja **[deploy/vm/LEIA-ME.md](deploy/vm/LEIA-ME.md)**.
+
 ## Máquina virtual: ISO que instala tudo
 
 Para criar uma VM do zero, sem digitar comandos, use a ISO de instalação automática. Ela instala o Ubuntu Server 24.04, o PostgreSQL e o BTS Compress. Veja **[deploy/iso/LEIA-ME.md](deploy/iso/LEIA-ME.md)**.

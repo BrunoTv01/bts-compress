@@ -29,7 +29,7 @@ O mesmo comando também **atualiza** um sistema já instalado, com backup antes 
 
 Depois abra o endereço mostrado e entre com **login `admin` e senha `admin`**. O sistema pede uma senha nova no primeiro acesso.
 
-Também há uma opção com Docker (`docker compose up -d`) e uma **ISO para máquina virtual** que instala Ubuntu + sistema sozinha (veja [deploy/iso/LEIA-ME.md](deploy/iso/LEIA-ME.md)).
+Também há uma opção com Docker (`docker compose up -d`) uma **ISO para máquina virtual** ([deploy/iso](deploy/iso/LEIA-ME.md)) e um **criador de VM no VirtualBox** com dois cliques ([deploy/vm](deploy/vm/LEIA-ME.md)).
 
 ## Baixar
 
