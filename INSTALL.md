@@ -15,7 +15,29 @@ Versão atual: **1.4.0**: importa os dados do Render; login padrão `admin` / `a
 
 ---
 
-## Opção A: script de instalação
+## Jeito mais rápido: um comando
+
+No terminal do servidor Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh | sudo bash
+```
+
+Ele baixa a versão mais nova do GitHub, instala Node.js e PostgreSQL, cria o banco local, carrega os dados da planilha e liga o sistema. No final mostra o endereço. Entre com login **admin** e senha **admin**.
+
+Para atualizar depois, rode **o mesmo comando**: ele detecta a instalação, faz backup do banco e atualiza sem perder dados.
+
+Com opções (por exemplo, publicar na porta 80):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh | sudo bash -s -- --nginx
+```
+
+Se o servidor não tiver o `curl`: `sudo apt install curl` (Ubuntu/Debian) ou `sudo dnf install curl` (Rocky/RHEL).
+
+---
+
+## Opção A: script de instalação (passo a passo)
 
 ### 1. Copie o projeto para o servidor
 
@@ -119,10 +141,10 @@ São mantidos os 30 backups mais recentes. Vale copiar a pasta `/var/backups/bts
 ### Atualizar para uma versão nova
 
 ```bash
-cd bts-compress
-git pull                      # ou extraia o .tar.gz novo
-sudo ./deploy/update.sh
+curl -fsSL https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh | sudo bash
 ```
+
+Ou, se instalou com git: `cd bts-compress && git pull && sudo ./deploy/update.sh`.
 
 O `update.sh` faz backup do banco, copia os arquivos novos e reinicia. Mudanças na estrutura do banco são aplicadas sozinhas, sem perder dados.
 

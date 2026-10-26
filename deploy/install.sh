@@ -205,5 +205,5 @@ echo "   Esqueceu a senha:  sudo $APP_DIR/deploy/reset-senha.sh   (volta para ad
 echo "   Configuração:      $ENV_FILE"
 echo "   Ver log:           journalctl -u $APP -f"
 echo "   Reiniciar:         systemctl restart $APP"
-echo "   Atualizar:         sudo ./deploy/update.sh   (de dentro da pasta nova do projeto)"
+echo "   Atualizar:         curl -fsSL https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh | sudo bash"
 echo "   Backup do banco:   sudo $APP_DIR/deploy/backup.sh"

@@ -19,12 +19,13 @@ Os totais, sobras e percentuais são recalculados a partir do banco a cada ediç
 
 ## Instalar em servidor Linux
 
-Veja **[INSTALL.md](INSTALL.md)**. Resumo:
+Um comando só, no terminal do servidor. Ele baixa o sistema, instala o PostgreSQL local, cria o banco e deixa tudo rodando:
 
 ```bash
-git clone https://github.com/BrunoTv01/bts-compress.git && cd bts-compress
-sudo ./deploy/install.sh
+curl -fsSL https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh | sudo bash
 ```
+
+O mesmo comando também **atualiza** um sistema já instalado, com backup antes e sem perder dados. Detalhes em **[INSTALL.md](INSTALL.md)**.
 
 Depois abra o endereço mostrado e entre com **login `admin` e senha `admin`**. O sistema pede uma senha nova no primeiro acesso.
 
