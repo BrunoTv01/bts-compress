@@ -44,7 +44,7 @@ O `ADMIN_TOKEN` só vale na primeira vez que o banco é criado. Mudar essa vari�
 1. Em **bts-compress → Environment**, adicione a variável `ADMIN_RESET_PASSWORD` com uma senha nova (8+ caracteres, letras e números, sem a palavra "admin").
 2. Salve. O Render reinicia o serviço e a senha do `admin` passa a ser essa.
 3. Entre com **admin** e a senha nova e crie a sua senha definitiva.
-4. **Apague `ADMIN_RESET_PASSWORD` do painel.** Enquanto ela existir, a senha do `admin` volta a ser redefinida toda vez que o serviço reinicia.
+4. Apague `ADMIN_RESET_PASSWORD` do painel. Cada valor só é aplicado uma vez; para redefinir de novo, use um valor diferente.
 
 ## Rodar sem configurar o banco
 

@@ -81,6 +81,10 @@ function setup(app, pool) {
     if (!pw) return;
     const problem = passwordProblem(pw, 'admin');
     if (problem) { console.log(`ADMIN_RESET_PASSWORD ignorado: ${problem}`); return; }
+    // aplica cada valor uma vez só; reinícios do serviço não voltam a trocar a senha
+    const mark = 'env:' + sha(pw).slice(0, 16);
+    const done = await pool.query("SELECT 1 FROM audit_log WHERE tbl='users' AND field='senha redefinida' AND new_value=$1 LIMIT 1", [mark]);
+    if (done.rows.length) return;
     const { rows } = await pool.query("SELECT id FROM users WHERE username = 'admin'");
     let id;
     if (rows.length) {
@@ -92,20 +96,42 @@ function setup(app, pool) {
       id = r.rows[0].id;
     }
     fails.delete('u:admin');
-    await audit('users', id, 'senha redefinida', null, null, 'Pela variável ADMIN_RESET_PASSWORD', 'servidor');
+    await audit('users', id, 'senha redefinida', null, mark, 'Pela variável ADMIN_RESET_PASSWORD', 'servidor');
     console.log('Senha do usuário admin redefinida pela variável ADMIN_RESET_PASSWORD. Entre, troque a senha e remova essa variável do painel.');
   }
+
+  // Recuperação única (26/10/2026): volta o acesso para admin / admin e obriga a trocar a senha
+  // no primeiro login. Roda uma vez só; depois disso o registro no histórico impede repetir.
+  const DEFAULT_RESET = 'senha padrão admin (1)';
+  async function oneTimeDefaultReset() {
+    const done = await pool.query("SELECT 1 FROM audit_log WHERE tbl='users' AND field=$1 LIMIT 1", [DEFAULT_RESET]);
+    if (done.rows.length) return;
+    const { rows } = await pool.query("SELECT id FROM users WHERE username = 'admin'");
+    let id;
+    if (rows.length) {
+      id = rows[0].id;
+      await pool.query("UPDATE users SET password_hash=$1, must_change=true, active=true, role='admin' WHERE id=$2", [hashPassword('admin'), id]);
+      await pool.query('DELETE FROM sessions WHERE user_id=$1', [id]);
+    } else {
+      const r = await pool.query("INSERT INTO users (username,name,role,password_hash,must_change) VALUES ('admin','Administrador','admin',$1,true) RETURNING id", [hashPassword('admin')]);
+      id = r.rows[0].id;
+    }
+    fails.delete('u:admin');
+    await audit('users', id, DEFAULT_RESET, null, null, 'Acesso recuperado: usuário admin, senha admin (troca obrigatória no primeiro login)', 'servidor');
+    console.log('Acesso recuperado: entre com usuário admin e senha admin. O sistema vai pedir uma senha nova.');
+  }
+  async function recover() { await resetFromEnv(); await oneTimeDefaultReset(); }
 
   // Cria o primeiro administrador se ainda não houver usuários
   async function bootstrap() {
     const { rows } = await pool.query('SELECT count(*)::int AS n FROM users');
-    if (rows[0].n > 0) return resetFromEnv();
+    if (rows[0].n > 0) return recover();
     const initial = (process.env.ADMIN_TOKEN || '').trim().replace(/^["']|["']$/g, '');
     const pw = initial || crypto.randomBytes(9).toString('base64').replace(/[+/=]/g, '').slice(0, 12) + '7a';
     await pool.query("INSERT INTO users (username,name,role,password_hash,must_change) VALUES ('admin','Administrador','admin',$1,true)", [hashPassword(pw)]);
     console.log('Usuário inicial criado: admin');
     console.log(initial ? 'Senha inicial: o valor de ADMIN_TOKEN. Troque no primeiro acesso.' : `Senha inicial: ${pw}  (troque no primeiro acesso)`);
-    return resetFromEnv();
+    return recover();
   }
 
   // Lê a sessão do cookie em todas as rotas /api
