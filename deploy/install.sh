@@ -90,18 +90,19 @@ pkg_install() {
 # Sem o CD na máquina o apt dá erro e o instalador do Node.js desiste: desliga essa fonte.
 disable_cdrom_sources() {
   local f mudou=0
-  if [ -f /etc/apt/sources.list ] && grep -qE '^[[:space:]]*deb[^#]*cdrom:' /etc/apt/sources.list; then
-    sed -i -E 's|^([[:space:]]*deb[^#]*cdrom:)|# \1|' /etc/apt/sources.list; mudou=1
-  fi
-  for f in /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
-    [ -f "$f" ] && grep -qE 'cdrom' "$f" || continue
-    case "$f" in
-      *.list) sed -i -E 's|^([[:space:]]*deb[^#]*cdrom:)|# \1|' "$f"; mudou=1;;
-      *.sources)
-        cp "$f" "$f.bak-bts"
-        awk 'BEGIN{RS="";ORS="\n\n"} /URIs:[^\n]*(cdrom:|file:\/cdrom)/ && !/Enabled:/ {$0=$0"\nEnabled: no"} {print}' "$f.bak-bts" > "$f"
-        cmp -s "$f" "$f.bak-bts" || mudou=1; rm -f "$f.bak-bts";;
-    esac
+  # formato antigo (.list): "deb cdrom:[...]" ou "deb [check-date=no] file:///cdrom ..."
+  for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list; do
+    [ -f "$f" ] || continue
+    if grep -qE '^[[:space:]]*deb(-src)?[[:space:]].*cdrom' "$f"; then
+      sed -i -E 's|^([[:space:]]*deb(-src)?[[:space:]].*cdrom.*)$|# \1|' "$f"; mudou=1
+    fi
+  done
+  # formato novo (.sources): bloco com "URIs: file:/cdrom" ou "cdrom:"
+  for f in /etc/apt/sources.list.d/*.sources; do
+    [ -f "$f" ] && grep -qiE '^URIs:.*cdrom' "$f" || continue
+    cp "$f" "$f.bak-bts"
+    awk 'BEGIN{RS="";ORS="\n\n"} /(^|\n)URIs:[^\n]*cdrom/ && !/(^|\n)Enabled:/ {$0=$0"\nEnabled: no"} {print}' "$f.bak-bts" > "$f"
+    cmp -s "$f" "$f.bak-bts" || mudou=1; rm -f "$f.bak-bts"
   done
   [ $mudou = 0 ] || ok "Fonte de pacotes do CD de instalação desligada"
 }
@@ -123,7 +124,7 @@ if [ "$(node_major)" -lt "$NODE_MIN" ]; then
   else curl -fsSL https://rpm.nodesource.com/setup_22.x | bash - >/dev/null; fi
   pkg_install nodejs
 fi
-[ "$(node_major)" -ge "$NODE_MIN" ] || fail "Não consegui instalar Node.js $NODE_MIN ou mais novo."
+[ "$(node_major)" -ge "$NODE_MIN" ] || fail "Não consegui instalar Node.js $NODE_MIN ou mais novo. Rode 'sudo apt-get update' e veja se alguma linha começa com E: (fonte de pacotes com erro)."
 ok "Node.js $(node -v)"
 
 # ---------- PostgreSQL ----------
