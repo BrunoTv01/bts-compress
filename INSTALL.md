@@ -224,3 +224,21 @@ Os dados ficam no volume `bts-db` e não se perdem ao atualizar ou reiniciar.
 **O serviço não sobe.** Rode `sudo journalctl -u bts-compress -n 50`. A primeira linha diz qual banco ele encontrou, ou o que falta. A causa mais comum é o PostgreSQL parado: `sudo systemctl start postgresql`.
 
 **A porta 3000 já está em uso.** Reinstale com outra porta: edite `PORT` em `/etc/bts-compress.env` e reinicie o serviço.
+
+
+## Coleta RTP não recebe o stream
+
+Use a aba **Coleta RTP** ou, no terminal do servidor:
+
+```bash
+node /opt/bts-compress/tools/analisar-rtp.js 239.1.1.1:5000 --segundos 5
+```
+
+Se aparecer "Nenhum pacote chegou":
+
+1. **Placa de rede**: com mais de uma placa, escolha no cadastro do stream a que está na rede do multicast. Para ver as placas: `ip -4 addr`.
+2. **Firewall**: `sudo /opt/bts-compress/deploy/firewall-multicast.sh` libera UDP multicast (ufw ou firewalld).
+3. **Rota de volta (rp_filter)**: se o equipamento que manda o multicast estiver em outra sub-rede, o Linux pode descartar os pacotes. Teste com `sudo sysctl -w net.ipv4.conf.all.rp_filter=2`.
+4. **Switch**: o switch precisa encaminhar o multicast para a porta do servidor (IGMP snooping com querier ativo, ou o grupo liberado na porta).
+5. **Máquina virtual**: a placa da VM precisa estar em modo **Bridge** (em NAT o multicast não chega).
+6. **Para ver se chega algo na placa**: `sudo tcpdump -ni any udp port 5000 -c 5`

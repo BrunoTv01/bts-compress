@@ -1,0 +1,402 @@
+// Coleta de dados de streams RTP/UDP: mede o TS, compara com o banco e grava só o que o usuário aprovar.
+'use strict';
+const { capture, interfaces, isIPv4 } = require('./ts/capture');
+
+const TARGETS = {
+  pids:        'Serviços & PIDs · PIDs, ID e codificação',
+  pids_total:  'Serviços & PIDs · bitrate',
+  titular:     'DVB atual · titular',
+  reserva:     'DVB atual · reserva',
+  mux:         'Taxas · mux',
+  enc:         'Taxas · encoder',
+  isdb_layers: 'ISDB-T · layers',
+  isdb_pids:   'ISDB-T · PIDs e taxas',
+};
+const KINDS = {
+  dvb:     { label: 'Mux DVB (satélite)', system: 'DVB', targets: ['pids', 'pids_total', 'mux'] },
+  isdb:    { label: 'BTS ISDB-T', system: 'ISDB-T', targets: ['pids', 'isdb_layers', 'isdb_pids'] },
+  encoder: { label: 'Saída de encoder', system: null, targets: ['enc'] },
+};
+const SHORT = { pids: 'PIDs', pids_total: 'bitrate PIDs', titular: 'titular', reserva: 'reserva', mux: 'taxas mux', enc: 'taxas encoder' };
+const PID_COLS = ['v', 'a1', 'a2', 'a3', 'a4', 'pcr', 'pmt', 'dem', 'ait', 'cc', 'ect', 'data'];
+const PID_LABEL = { v: 'Vídeo', a1: 'Áudio 1', a2: 'Áudio 2', a3: 'Áudio 3', a4: 'Áudio 4', pcr: 'PCR', pmt: 'PMT', dem: 'DEM CC', ait: 'AIT', cc: 'CC', ect: 'ECT', data: 'Data' };
+const RATE_LABEL = { a1: 'Áudio 1 (kbps)', a2: 'Áudio 2 (kbps)', a3: 'Áudio 3 (kbps)', a4: 'Áudio 4 (kbps)', v: 'Vídeo (Mbps)', cc: 'CC (kbps)' };
+const round = (v, d) => v == null ? null : +(+v).toFixed(d);
+const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^TV/, '');
+const same = (a, b) => (a == null && b == null) || (a != null && b != null && String(a) === String(b));
+
+// codificação no formato do cadastro (MPEG 1 / MPEG 2 / MPEG 4 / HEVC)
+function codecOf(p) {
+  const v = p.components.find(c => c.role === 'video'), a = p.components.find(c => c.role === 'audio');
+  if (v) return v.codec === 'MPEG 4 Visual' ? 'MPEG 4' : v.codec;
+  if (a) return /AAC|MPEG 4/.test(a.codec) ? 'MPEG 4' : /MPEG 1|MPEG 2/.test(a.codec) ? 'MPEG 1' : a.codec;
+  return null;
+}
+// PIDs do serviço nas colunas da aba Serviços & PIDs
+function pidCols(p) {
+  const out = Object.fromEntries(PID_COLS.map(k => [k, null]));
+  const by = r => p.components.filter(c => c.role === r);
+  out.v = by('video')[0]?.pid ?? null;
+  by('audio').slice(0, 4).forEach((c, i) => { out['a' + (i + 1)] = c.pid; });
+  out.pcr = p.pcrPid != null && p.pcrPid !== 0x1fff ? p.pcrPid : null;
+  out.pmt = p.pmtPid;
+  for (const r of ['cc', 'ait', 'dem', 'ect', 'data']) out[r] = by(r)[0]?.pid ?? null;
+  return out;
+}
+function rateCols(p) {
+  const by = r => p.components.filter(c => c.role === r);
+  const out = { a1: null, a2: null, a3: null, a4: null, v: null, cc: null };
+  by('audio').slice(0, 4).forEach((c, i) => { out['a' + (i + 1)] = round(c.mbps * 1000, 0); });
+  const v = by('video'); if (v.length) out.v = round(v.reduce((s, c) => s + c.mbps, 0), 2);
+  const cc = by('cc'); if (cc.length) out.cc = round(cc.reduce((s, c) => s + c.mbps, 0) * 1000, 1);
+  return out;
+}
+
+// Liga cada serviço do stream a um serviço do cadastro: pelo PMT, pelo ID de serviço e por fim pelo nome
+function matchPrograms(result, db, system) {
+  const used = new Set(), map = new Map();
+  const pidsBySvc = new Map(db.pids.map(p => [p.service_id, p]));
+  const okSys = s => !system || s.system === system;
+  const pick = (p, list) => {
+    const c = list.filter(s => !used.has(s.id));
+    if (!c.length) return null;
+    return c.find(s => p.name && norm(s.name) === norm(p.name)) || c[0];
+  };
+  const steps = [
+    p => db.services.filter(s => okSys(s) && pidsBySvc.get(s.id)?.pmt === p.pmtPid && (s.service_id == null || s.service_id === p.program)),
+    p => db.services.filter(s => okSys(s) && s.service_id === p.program),
+    p => p.name ? db.services.filter(s => okSys(s) && norm(s.name) === norm(p.name)) : [],
+    p => p.name ? db.services.filter(s => okSys(s) && norm(s.name).length >= 3 && (norm(p.name).includes(norm(s.name)) || norm(s.name).includes(norm(p.name)))) : [],
+    p => db.services.filter(s => okSys(s) && pidsBySvc.get(s.id)?.pmt === p.pmtPid),
+  ];
+  for (const step of steps)
+    for (const p of result.programs) {
+      if (map.has(p.program)) continue;
+      const s = pick(p, step(p));
+      if (s) { map.set(p.program, s); used.add(s.id); }
+    }
+  return map;
+}
+
+// Lista de mudanças propostas (não grava nada)
+function propose(result, db, opts) {
+  const targets = new Set(opts.targets || []);
+  const system = KINDS[opts.kind]?.system || null;
+  const match = matchPrograms(result, db, system);
+  const out = [];
+  const add = o => out.push({ default: true, ...o });
+  const programs = result.programs.filter(p => p.pmtFound);
+
+  for (const p of programs) {
+    const s = match.get(p.program);
+    const label = s ? s.name : (p.name || `Serviço ${p.program}`);
+    const cols = pidCols(p), rates = rateCols(p), codec = codecOf(p);
+    if (!s) {
+      const wants = [...targets].filter(t => t !== 'isdb_layers' && t !== 'isdb_pids');
+      if (!wants.length) continue;
+      let name = label, n = 2;
+      while (db.services.some(x => norm(x.name) === norm(name))) name = `${label} (${n++})`;
+      const row = { name, service_id: p.program, codec, system: system || (result.isdb ? 'ISDB-T' : 'DVB'), targets: wants, pids: cols, mbps: round(p.mbps, 3), rates };
+      add({ id: `svc|new|${p.program}`, op: 'newService', group: name, area: 'Serviços', item: `Cadastrar serviço novo (ID ${p.program})`,
+        old: null, new: `${name} em: ${wants.map(t => SHORT[t]).join(', ')}`, row,
+        note: 'Não achei este serviço no cadastro (nem pelo PMT, nem pelo ID, nem pelo nome).' });
+      continue;
+    }
+    const pidRow = db.pids.find(x => x.service_id === s.id);
+    if (targets.has('pids')) {
+      if (!same(s.service_id, p.program)) add({ id: `services|${s.id}|service_id`, op: 'set', table: 'services', match: { id: s.id }, field: 'service_id', group: s.name, area: TARGETS.pids, item: 'ID de serviço', old: s.service_id, new: p.program });
+      if (codec && !same(s.codec, codec)) add({ id: `services|${s.id}|codec`, op: 'set', table: 'services', match: { id: s.id }, field: 'codec', group: s.name, area: TARGETS.pids, item: 'Codificação', old: s.codec, new: codec });
+      if (p.name && norm(p.name) !== norm(s.name)) {
+        const taken = db.services.some(x => x.id !== s.id && x.name.toLowerCase() === p.name.toLowerCase());
+        add({ id: `services|${s.id}|name`, op: 'set', table: 'services', match: { id: s.id }, field: 'name', group: s.name, area: TARGETS.pids, item: 'Nome (SDT)', old: s.name, new: p.name, default: false,
+          blocked: taken ? 'Já existe outro serviço com esse nome no cadastro.' : undefined, note: taken ? undefined : 'O nome muda em todas as abas.' });
+      }
+      for (const k of PID_COLS) {
+        const oldV = pidRow ? pidRow[k] : null, newV = cols[k];
+        if (same(oldV, newV)) continue;
+        add({ id: `service_pids|${s.id}|${k}`, op: 'set', table: 'service_pids', match: { service_id: s.id }, field: k, group: s.name, area: TARGETS.pids, item: `PID ${PID_LABEL[k]}`, old: oldV, new: newV,
+          default: newV != null, note: newV == null ? 'Não apareceu na PMT do stream.' : !pidRow ? 'Serviço ainda não está na aba Serviços & PIDs.' : undefined });
+      }
+    }
+    for (const cfg of ['pids_total', 'titular', 'reserva']) {
+      if (!targets.has(cfg)) continue;
+      const b = db.bitrates.find(x => x.service_id === s.id && x.config === cfg), nv = round(p.mbps, 3);
+      if (!same(b?.mbps ?? null, nv)) add({ id: `bitrates|${s.id}|${cfg}|mbps`, op: 'set', table: 'bitrates', match: { service_id: s.id, config: cfg }, field: 'mbps', group: s.name, area: TARGETS[cfg], item: 'Bitrate (Mbps)', old: b?.mbps ?? null, new: nv, unit: 'Mbps' });
+      if (opts.equipment_id && cfg !== 'pids_total' && !same(b?.equipment_id ?? null, opts.equipment_id))
+        add({ id: `bitrates|${s.id}|${cfg}|equipment_id`, op: 'set', table: 'bitrates', match: { service_id: s.id, config: cfg }, field: 'equipment_id', group: s.name, area: TARGETS[cfg], item: 'Encoder', old: eqName(db, b?.equipment_id), new: eqName(db, opts.equipment_id), value: opts.equipment_id });
+    }
+    for (const src of ['mux', 'enc']) {
+      if (!targets.has(src)) continue;
+      const e = db.encoder.find(x => x.service_id === s.id && x.source === src);
+      for (const k of Object.keys(rates)) {
+        const oldV = e ? e[k] : null;
+        if (same(oldV, rates[k])) continue;
+        add({ id: `encoder_rates|${s.id}|${src}|${k}`, op: 'set', table: 'encoder_rates', match: { service_id: s.id, source: src }, field: k, group: s.name, area: TARGETS[src], item: RATE_LABEL[k], old: oldV, new: rates[k], default: rates[k] != null, note: rates[k] == null ? 'Não apareceu no stream.' : undefined });
+      }
+      if (opts.equipment_id && !same(e?.equipment_id ?? null, opts.equipment_id))
+        add({ id: `encoder_rates|${s.id}|${src}|equipment_id`, op: 'set', table: 'encoder_rates', match: { service_id: s.id, source: src }, field: 'equipment_id', group: s.name, area: TARGETS[src], item: src === 'mux' ? 'Mux' : 'Encoder', old: eqName(db, e?.equipment_id), new: eqName(db, opts.equipment_id), value: opts.equipment_id });
+    }
+  }
+
+  // ISDB-T: serviços por layer e linha de tabelas
+  if (targets.has('isdb_layers')) {
+    const usedRows = new Set();
+    for (const p of programs) {
+      const s = match.get(p.program), names = [s?.name, p.name].filter(Boolean).map(norm);
+      const row = db.layers.find(l => l.layer !== 'Tabelas' && !usedRows.has(l.id) && names.some(n => norm(l.name) === n))
+        || db.layers.find(l => l.layer !== 'Tabelas' && !usedRows.has(l.id) && names.some(n => n.length >= 3 && (norm(l.name).includes(n) || n.includes(norm(l.name)))));
+      const layer = p.layer || (result.isdb ? null : 'B'), nv = round(p.mbps, 3), nm = s?.name || p.name || `Serviço ${p.program}`;
+      if (row) {
+        usedRows.add(row.id);
+        if (!same(row.mbps, nv)) add({ id: `isdb_layers|${row.id}|mbps`, op: 'set', table: 'isdb_layers', match: { id: row.id }, field: 'mbps', group: row.name, area: TARGETS.isdb_layers, item: 'Bitrate (Mbps)', old: row.mbps, new: nv });
+        if (layer && row.layer !== layer) add({ id: `isdb_layers|${row.id}|layer`, op: 'set', table: 'isdb_layers', match: { id: row.id }, field: 'layer', group: row.name, area: TARGETS.isdb_layers, item: 'Layer', old: row.layer, new: layer });
+      } else {
+        add({ id: `isdb_layers|new|${p.program}`, op: 'insert', table: 'isdb_layers', row: { layer: layer || 'B', name: nm, mbps: nv }, group: nm, area: TARGETS.isdb_layers, item: 'Incluir linha', old: null, new: `Layer ${layer || 'B'} · ${String(nv).replace('.', ',')} Mbps` });
+      }
+    }
+    const loose = result.pids.filter(x => !x.owner.length && x.pid !== 0x1fff);
+    const tabMbps = round(loose.reduce((a, x) => a + x.mbps, 0), 4);
+    const tab = db.layers.find(l => l.layer === 'Tabelas');
+    if (tab) { if (!same(tab.mbps, tabMbps)) add({ id: `isdb_layers|${tab.id}|mbps`, op: 'set', table: 'isdb_layers', match: { id: tab.id }, field: 'mbps', group: tab.name, area: TARGETS.isdb_layers, item: 'Tabelas (Mbps)', old: tab.mbps, new: tabMbps, note: loose.map(x => x.table || x.pid).join(', ') }); }
+    else if (loose.length) add({ id: 'isdb_layers|new|tabelas', op: 'insert', table: 'isdb_layers', row: { layer: 'Tabelas', name: loose.map(x => x.table || 'PID ' + x.pid).slice(0, 4).join(', ') + (loose.length > 4 ? '…' : ''), mbps: tabMbps }, group: 'Tabelas', area: TARGETS.isdb_layers, item: 'Incluir linha', old: null, new: `${String(tabMbps).replace('.', ',')} Mbps` });
+    const lb = result.layers?.B;
+    if (lb && lb.totalMbps) {
+      const cur = db.settings.find(x => x.key === 'isdb_layer_b_total');
+      const nv = round(lb.totalMbps, 3);
+      if (cur && !same(cur.value, nv)) add({ id: 'settings|isdb_layer_b_total', op: 'set', table: 'settings', match: { key: 'isdb_layer_b_total' }, field: 'value', group: 'Geral', area: TARGETS.isdb_layers, item: 'Capacidade da layer B (Mbps)', old: cur.value, new: nv, note: 'Medida pelos pacotes da layer B no BTS (inclui nulos).' });
+    }
+  }
+
+  // ISDB-T: taxa de cada PID
+  if (targets.has('isdb_pids')) {
+    const seen = new Set();
+    for (const x of result.pids) {
+      if (x.pid === 0x1fff) continue;
+      seen.add(x.pid);
+      const owner = programs.find(p => x.owner.includes(p.program));
+      const comp = owner?.components.find(c => c.pid === x.pid);
+      const ident = comp ? comp.ident : owner && owner.pmtPid === x.pid ? 'PMT' : owner && owner.pcrPid === x.pid ? 'PCR' : x.table || (x.pid === result.nitPid ? 'NIT' : 'UNKNOWN');
+      const nv = round(x.mbps, 4);
+      const row = db.isdbPids.find(r => r.pid === x.pid);
+      if (row) {
+        if (!same(row.mbps, nv)) add({ id: `isdb_pids|${row.id}|mbps`, op: 'set', table: 'isdb_pids', match: { id: row.id }, field: 'mbps', group: row.grp, area: TARGETS.isdb_pids, item: `PID ${x.pid} ${row.ident || ident} (Mbps)`, old: row.mbps, new: nv });
+        if (!row.ident && ident) add({ id: `isdb_pids|${row.id}|ident`, op: 'set', table: 'isdb_pids', match: { id: row.id }, field: 'ident', group: row.grp, area: TARGETS.isdb_pids, item: `PID ${x.pid} identificação`, old: null, new: ident });
+      } else {
+        const s = owner && match.get(owner.program);
+        // usa o mesmo grupo dos outros PIDs desse serviço que já estão na tabela (ex.: "1-SEG")
+        const ownPids = owner ? new Set([owner.pmtPid, owner.pcrPid, ...owner.components.map(c => c.pid)]) : null;
+        const known = owner ? db.isdbPids.filter(r => ownPids.has(r.pid)).map(r => r.grp) : [];
+        const grp = !owner ? (db.isdbPids.find(r => /TABELA/i.test(r.grp))?.grp || 'TABELAS') : (known.length ? mostCommon(known) : (s?.name || owner.name || `Serviço ${owner.program}`));
+        add({ id: `isdb_pids|new|${x.pid}`, op: 'insert', table: 'isdb_pids', row: { grp, pid: x.pid, ident, mbps: nv }, group: grp, area: TARGETS.isdb_pids, item: `Incluir PID ${x.pid} (${ident})`, old: null, new: `${String(nv).replace('.', ',')} Mbps` });
+      }
+    }
+    for (const r of db.isdbPids) {
+      if (r.pid == null || seen.has(r.pid) || r.mbps === 0) continue;
+      add({ id: `isdb_pids|${r.id}|mbps`, op: 'set', table: 'isdb_pids', match: { id: r.id }, field: 'mbps', group: r.grp, area: TARGETS.isdb_pids, item: `PID ${r.pid} ${r.ident || ''} (Mbps)`.replace('  ', ' '), old: r.mbps, new: 0, default: false, note: 'Esse PID não apareceu no stream.' });
+    }
+  }
+
+  if (targets.has('pids_total') && !result.isdb && result.totalMbps) {
+    const cur = db.settings.find(x => x.key === 'dvb_available'), nv = round(result.totalMbps, 3);
+    if (cur && !same(cur.value, nv)) add({ id: 'settings|dvb_available', op: 'set', table: 'settings', match: { key: 'dvb_available' }, field: 'value', group: 'Geral', area: TARGETS.pids_total, item: 'Banda total do mux (Mbps)', old: cur.value, new: nv, default: false, note: 'Taxa total medida do TS, com os pacotes nulos.' });
+  }
+  const matches = result.programs.map(p => ({ program: p.program, name: p.name, service: match.get(p.program)?.name || null, serviceId: match.get(p.program)?.id || null }));
+  return { proposals: out, matches, unmatched: matches.filter(m => !m.service).length };
+}
+function mostCommon(a) { const m = {}; let b = a[0]; for (const x of a) { m[x] = (m[x] || 0) + 1; if (m[x] > m[b]) b = x; } return b; }
+function eqName(db, id) { const e = id != null && db.equipment.find(x => x.id === id); return e ? [e.name, e.model].filter(Boolean).join(' · ') : null; }
+
+async function loadDb(q) {
+  const [services, pids, bitrates, encoder, layers, isdbPids, settings, equipment] = await Promise.all([
+    q('SELECT * FROM services ORDER BY sort'), q('SELECT * FROM service_pids'), q('SELECT * FROM bitrates'),
+    q('SELECT * FROM encoder_rates'), q('SELECT * FROM isdb_layers ORDER BY sort'), q('SELECT * FROM isdb_pids ORDER BY sort'),
+    q('SELECT * FROM settings'), q('SELECT id,name,model FROM equipment'),
+  ]);
+  return { services, pids, bitrates, encoder, layers, isdbPids, settings, equipment };
+}
+
+const KEY_TABLES = {
+  services: ['id'], service_pids: ['service_id'], bitrates: ['service_id', 'config'], encoder_rates: ['service_id', 'source'],
+  isdb_layers: ['id'], isdb_pids: ['id'], settings: ['key'],
+};
+const FIELDS = {
+  services: ['service_id', 'codec', 'name'], service_pids: PID_COLS, bitrates: ['mbps', 'equipment_id'],
+  encoder_rates: ['a1', 'a2', 'a3', 'a4', 'v', 'cc', 'equipment_id'], isdb_layers: ['mbps', 'layer'], isdb_pids: ['mbps', 'ident'], settings: ['value'],
+};
+
+async function applyOne(c, p, ctx, audit) {
+  const fmtV = v => v == null ? null : String(v);
+  if (p.op === 'set') {
+    const keys = KEY_TABLES[p.table];
+    if (!keys || !FIELDS[p.table].includes(p.field)) throw new Error('Campo não permitido: ' + p.table + '.' + p.field);
+    const where = keys.map((k, i) => `${k}=$${i + 1}`).join(' AND '), vals = keys.map(k => p.match[k]);
+    const value = p.value !== undefined ? p.value : p.new;
+    const cur = await c.query(`SELECT ${p.field} AS v, ${keys[0]} AS pk FROM ${p.table} WHERE ${where} FOR UPDATE`, vals);
+    let rowId;
+    if (cur.rows.length) {
+      await c.query(`UPDATE ${p.table} SET ${p.field}=$${keys.length + 1} WHERE ${where}`, [...vals, value]);
+      rowId = p.table === 'bitrates' || p.table === 'encoder_rates' ? (await c.query(`SELECT id FROM ${p.table} WHERE ${where}`, vals)).rows[0].id : cur.rows[0].pk;
+    } else {
+      if (p.table === 'settings' || p.table === 'services' || p.table === 'isdb_layers' || p.table === 'isdb_pids') return false;
+      const cols = [...keys, p.field];
+      const r = await c.query(`INSERT INTO ${p.table} (${cols.join(',')}) VALUES (${cols.map((_, i) => '$' + (i + 1)).join(',')}) RETURNING *`, [...vals, value]);
+      rowId = r.rows[0].id ?? r.rows[0].service_id;
+    }
+    if (p.table === 'services' && p.field === 'name' && cur.rows[0]?.v) await c.query('UPDATE isdb_layers SET name=$1 WHERE name=$2', [value, cur.rows[0].v]);
+    await audit(c, p.table, rowId, p.field === 'equipment_id' ? 'equipamento' : p.field, p.field === 'equipment_id' ? p.old : fmtV(cur.rows[0]?.v ?? null), p.field === 'equipment_id' ? p.new : fmtV(value), `${ctx} · ${p.group} · ${p.item}`);
+    return true;
+  }
+  if (p.op === 'insert') {
+    if (!['isdb_layers', 'isdb_pids'].includes(p.table)) throw new Error('Tabela não permitida');
+    const row = { ...p.row, sort: (await c.query(`SELECT COALESCE(max(sort),0)+1 AS n FROM ${p.table}`)).rows[0].n };
+    const cols = Object.keys(row);
+    const r = await c.query(`INSERT INTO ${p.table} (${cols.join(',')}) VALUES (${cols.map((_, i) => '$' + (i + 1)).join(',')}) RETURNING id`, cols.map(k => row[k]));
+    await audit(c, p.table, r.rows[0].id, 'inclusão', null, p.new, `${ctx} · ${p.group} · ${p.item}`);
+    return true;
+  }
+  if (p.op === 'newService') {
+    const r0 = p.row;
+    const sort = (await c.query('SELECT COALESCE(max(sort),0)+1 AS n FROM services')).rows[0].n;
+    const { rows } = await c.query('INSERT INTO services (service_id,name,codec,system,sort) VALUES ($1,$2,$3,$4,$5) RETURNING id', [r0.service_id, r0.name, r0.codec, r0.system, sort]);
+    const id = rows[0].id, t = new Set(r0.targets);
+    if (t.has('pids')) await c.query(`INSERT INTO service_pids (service_id,${PID_COLS.join(',')}) VALUES ($1,${PID_COLS.map((_, i) => '$' + (i + 2)).join(',')})`, [id, ...PID_COLS.map(k => r0.pids[k])]);
+    for (const cfg of ['pids_total', 'titular', 'reserva']) if (t.has(cfg) || (cfg === 'pids_total' && t.has('pids')))
+      await c.query('INSERT INTO bitrates (service_id,config,mbps,equipment_id) VALUES ($1,$2,$3,$4)', [id, cfg, r0.mbps, cfg === 'pids_total' ? null : r0.equipment_id || null]);
+    for (const src of ['mux', 'enc']) if (t.has(src))
+      await c.query('INSERT INTO encoder_rates (service_id,source,a1,a2,a3,a4,v,cc,equipment_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [id, src, r0.rates.a1, r0.rates.a2, r0.rates.a3, r0.rates.a4, r0.rates.v, r0.rates.cc, r0.equipment_id || null]);
+    await audit(c, 'services', id, 'cadastro', null, r0.name, `${ctx} · serviço novo encontrado no stream`);
+    return true;
+  }
+  throw new Error('Operação desconhecida');
+}
+
+function parseSource(b) {
+  const name = String(b.name || '').trim().slice(0, 120);
+  const kind = KINDS[b.kind] ? b.kind : 'dvb';
+  const address = String(b.address || '').trim(), iface = String(b.iface || '').trim(), source_ip = String(b.source_ip || '').trim();
+  const port = Number(b.port), seconds = Math.min(60, Math.max(2, Number(b.seconds) || 10));
+  if (!name) throw bad('Dê um nome para o stream.');
+  if (address && !isIPv4(address)) throw bad('Endereço IP inválido. Ex.: 239.1.1.1');
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw bad('Porta inválida (1 a 65535).');
+  if (iface && !isIPv4(iface)) throw bad('IP da placa de rede inválido.');
+  if (source_ip && !isIPv4(source_ip)) throw bad('IP de origem inválido.');
+  const targets = (Array.isArray(b.targets) ? b.targets : KINDS[kind].targets).filter(t => TARGETS[t]);
+  const equipment_id = b.equipment_id === '' || b.equipment_id == null ? null : Number(b.equipment_id);
+  if (equipment_id != null && !Number.isInteger(equipment_id)) throw bad('Equipamento inválido.');
+  return { name, kind, address: address || null, port, iface: iface || null, source_ip: source_ip || null, seconds, targets: JSON.stringify(targets), equipment_id, notes: String(b.notes || '').trim().slice(0, 300) || null };
+}
+const bad = m => Object.assign(new Error(m), { status: 400 });
+const pub = s => s && { ...s, targets: JSON.parse(s.targets || '[]') };
+const summary = r => `${r.system} · ${r.programs.length} serviço${r.programs.length === 1 ? '' : 's'} · ${String(r.totalMbps).replace('.', ',')} Mbps` + (r.ccErrors ? ` · ${r.ccErrors} erros CC` : '');
+
+function setup(app, pool, { requireEditor, who }) {
+  const q = (sql, v) => pool.query(sql, v).then(r => r.rows);
+  const audit = (c, tbl, id, field, oldV, newV, ctx) => c.query('INSERT INTO audit_log (tbl,row_id,field,old_value,new_value,context,username) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+    [tbl, String(id), field, oldV, newV, String(ctx).slice(0, 200), who()]);
+  let running = 0;
+  const wrap = fn => (req, res, next) => fn(req, res, next).catch(e => e.status || e.friendly ? res.status(e.status || 422).json({ error: e.message, code: e.code }) : next(e));
+
+  app.get('/api/coleta', requireEditor, wrap(async (_req, res) => {
+    const sources = (await q('SELECT * FROM stream_sources ORDER BY lower(name), id')).map(pub);
+    const last = await q(`SELECT DISTINCT ON (source_id) id, source_id, at, username, applied FROM stream_measurements ORDER BY source_id, at DESC`);
+    res.json({ sources, last, interfaces: interfaces(), targets: TARGETS, kinds: Object.fromEntries(Object.entries(KINDS).map(([k, v]) => [k, { label: v.label, targets: v.targets }])) });
+  }));
+
+  app.post('/api/coleta/fontes', requireEditor, wrap(async (req, res) => {
+    const s = parseSource(req.body || {});
+    const cols = Object.keys(s);
+    const [row] = await q(`INSERT INTO stream_sources (${cols.join(',')}) VALUES (${cols.map((_, i) => '$' + (i + 1)).join(',')}) RETURNING *`, cols.map(k => s[k]));
+    await audit(pool, 'stream_sources', row.id, 'cadastro', null, `${row.name} · ${row.address || '*'}:${row.port}`, 'Coleta RTP · stream cadastrado');
+    res.status(201).json(pub(row));
+  }));
+
+  app.put('/api/coleta/fontes/:id', requireEditor, wrap(async (req, res) => {
+    const s = parseSource(req.body || {});
+    const cols = Object.keys(s);
+    const rows = await q(`UPDATE stream_sources SET ${cols.map((k, i) => `${k}=$${i + 1}`).join(',')} WHERE id=$${cols.length + 1} RETURNING *`, [...cols.map(k => s[k]), req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Stream não encontrado.' });
+    await audit(pool, 'stream_sources', rows[0].id, 'alteração', null, `${rows[0].name} · ${rows[0].address || '*'}:${rows[0].port}`, 'Coleta RTP · stream alterado');
+    res.json(pub(rows[0]));
+  }));
+
+  app.delete('/api/coleta/fontes/:id', requireEditor, wrap(async (req, res) => {
+    const rows = await q('DELETE FROM stream_sources WHERE id=$1 RETURNING *', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Stream não encontrado.' });
+    await audit(pool, 'stream_sources', rows[0].id, 'exclusão', `${rows[0].name} · ${rows[0].address || '*'}:${rows[0].port}`, null, 'Coleta RTP · stream excluído');
+    res.json({ ok: true });
+  }));
+
+  // Mede: { source_id } (stream cadastrado) ou { address, port, iface, source_ip, seconds, kind, targets } (avulso)
+  app.post('/api/coleta/medir', requireEditor, wrap(async (req, res) => {
+    const b = req.body || {};
+    let src = null, opts;
+    if (b.source_id) {
+      const [row] = await q('SELECT * FROM stream_sources WHERE id=$1', [b.source_id]);
+      if (!row) return res.status(404).json({ error: 'Stream não encontrado. Atualize a página.' });
+      src = pub(row);
+      opts = { kind: src.kind, targets: Array.isArray(b.targets) ? b.targets.filter(t => TARGETS[t]) : src.targets, equipment_id: src.equipment_id, name: src.name };
+    } else {
+      const s = parseSource({ name: 'Medição avulsa', ...b });
+      src = { ...s, targets: JSON.parse(s.targets) };
+      opts = { kind: s.kind, targets: src.targets, equipment_id: s.equipment_id, name: `${s.address || '*'}:${s.port}` };
+    }
+    if (running >= 3) return res.status(429).json({ error: 'Já há 3 medições rodando. Espere uma terminar.' });
+    running++;
+    let result;
+    try { result = await capture({ address: src.address || '', port: src.port, iface: src.iface || '', source: src.source_ip || '', seconds: b.seconds || src.seconds }); }
+    finally { running--; }
+    const [m] = await q('INSERT INTO stream_measurements (source_id, username, opts, result) VALUES ($1,$2,$3,$4) RETURNING id, at',
+      [b.source_id || null, who(), JSON.stringify(opts), JSON.stringify(result)]);
+    if (b.source_id) await q('UPDATE stream_sources SET last_at=now(), last_summary=$1 WHERE id=$2', [summary(result), b.source_id]);
+    await q('DELETE FROM stream_measurements WHERE id IN (SELECT id FROM stream_measurements WHERE source_id IS NOT DISTINCT FROM $1 ORDER BY at DESC OFFSET 50)', [b.source_id || null]);
+    const db = await loadDb(q);
+    const { proposals, matches, unmatched } = propose(result, db, opts);
+    res.json({ measurement: { id: m.id, at: m.at }, opts, result, proposals, matches, unmatched });
+  }));
+
+  // Reabre uma medição já feita, com as diferenças recalculadas contra o banco de agora
+  app.get('/api/coleta/medicoes/:id', requireEditor, wrap(async (req, res) => {
+    const [m] = await q('SELECT * FROM stream_measurements WHERE id=$1', [req.params.id]);
+    if (!m) return res.status(404).json({ error: 'Medição não encontrada.' });
+    const opts = JSON.parse(m.opts), result = JSON.parse(m.result);
+    const { proposals, matches, unmatched } = propose(result, await loadDb(q), opts);
+    res.json({ measurement: { id: m.id, at: m.at, username: m.username, applied: m.applied }, opts, result, proposals, matches, unmatched });
+  }));
+
+  // Grava as mudanças marcadas: { measurement_id, ids: [...] }
+  app.post('/api/coleta/aplicar', requireEditor, wrap(async (req, res) => {
+    const { measurement_id, ids } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'Marque pelo menos uma mudança.' });
+    const [m] = await q('SELECT * FROM stream_measurements WHERE id=$1', [measurement_id]);
+    if (!m) return res.status(404).json({ error: 'Medição não encontrada. Colete de novo.' });
+    const opts = JSON.parse(m.opts), result = JSON.parse(m.result);
+    const want = new Set(ids.map(String));
+    const c = await pool.connect();
+    let applied = 0;
+    const skipped = [];
+    try {
+      await c.query('BEGIN');
+      const db = await loadDb((sql, v) => c.query(sql, v).then(r => r.rows));
+      const { proposals } = propose(result, db, opts);
+      const byId = new Map(proposals.map(p => [p.id, p]));
+      for (const id of want) if (!byId.has(id)) skipped.push(id);
+      const ctx = `Coleta ${opts.name} (${new Date(m.at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })})`;
+      // serviços novos primeiro, depois o resto na ordem da lista
+      for (const p of proposals) if (want.has(p.id) && p.blocked) skipped.push(p.id);
+      const list = proposals.filter(p => want.has(p.id) && !p.blocked).sort((a, b) => (a.op === 'newService' ? 0 : 1) - (b.op === 'newService' ? 0 : 1));
+      for (const p of list) {
+        if (p.op === 'newService') p.row.equipment_id = opts.equipment_id || null;
+        if (await applyOne(c, p, ctx, audit)) applied++; else skipped.push(p.id);
+      }
+      await c.query('UPDATE stream_measurements SET applied = applied + $1 WHERE id=$2', [applied, m.id]);
+      await c.query('COMMIT');
+    } catch (e) {
+      await c.query('ROLLBACK').catch(() => {});
+      if (e.code === '23505') return res.status(409).json({ error: 'Já existe um serviço com esse nome. Desmarque o cadastro ou renomeie o serviço existente.' });
+      throw e;
+    } finally { c.release(); }
+    res.json({ applied, skipped });
+  }));
+}
+
+module.exports = { setup, propose, matchPrograms, TARGETS, KINDS };

@@ -24,6 +24,7 @@ chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
 install -m 644 "$APP_DIR/deploy/$APP.service" /etc/systemd/system/$APP.service
 systemctl daemon-reload
 systemctl restart "$APP"
+bash "$APP_DIR/deploy/firewall-multicast.sh" || true
 
 PORT="$(sed -n 's/^PORT=//p' /etc/$APP.env)"
 for _ in $(seq 1 30); do curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1 && break; sleep 1; done

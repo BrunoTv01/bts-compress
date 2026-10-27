@@ -221,6 +221,8 @@ if command -v firewall-cmd >/dev/null && firewall-cmd --state >/dev/null 2>&1; t
   firewall-cmd -q --permanent --add-port="$PUB_PORT"/tcp && firewall-cmd -q --reload; ok "Firewall (firewalld): porta $PUB_PORT liberada"
 fi
 
+bash "$APP_DIR/deploy/firewall-multicast.sh" || true
+
 # ---------- verificação ----------
 LOCAL_PORT="$(sed -n 's/^PORT=//p' "$ENV_FILE")"
 for _ in $(seq 1 30); do

@@ -140,3 +140,31 @@ CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
 
 -- Quem fez cada alteração
 ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS username TEXT;
+
+-- Coleta de dados de streams RTP/UDP (aba Coleta RTP)
+CREATE TABLE IF NOT EXISTS stream_sources (
+  id            SERIAL PRIMARY KEY,
+  name          TEXT NOT NULL,
+  kind          TEXT NOT NULL DEFAULT 'dvb' CHECK (kind IN ('dvb','isdb','encoder')),
+  address       TEXT,                    -- grupo multicast (239.x.x.x) ou vazio para unicast
+  port          INTEGER NOT NULL CHECK (port BETWEEN 1 AND 65535),
+  iface         TEXT,                    -- IP da placa de rede por onde chega o multicast
+  source_ip     TEXT,                    -- origem (multicast SSM), opcional
+  seconds       INTEGER NOT NULL DEFAULT 10,
+  targets       TEXT NOT NULL DEFAULT '[]',  -- JSON: abas que a coleta pode preencher
+  equipment_id  INTEGER REFERENCES equipment(id) ON DELETE SET NULL,
+  notes         TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_at       TIMESTAMPTZ,
+  last_summary  TEXT
+);
+CREATE TABLE IF NOT EXISTS stream_measurements (
+  id          SERIAL PRIMARY KEY,
+  source_id   INTEGER REFERENCES stream_sources(id) ON DELETE CASCADE,
+  at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  username    TEXT,
+  opts        TEXT NOT NULL,             -- JSON: tipo, abas e equipamento usados nesta medição
+  result      TEXT NOT NULL,             -- JSON: resultado completo da análise do TS
+  applied     INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS stream_measurements_source ON stream_measurements(source_id, at DESC);

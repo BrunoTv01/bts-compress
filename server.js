@@ -66,6 +66,8 @@ app.use(express.json({ limit: '100kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 const { requireRole, bootstrap } = auth.setup(app, pool);
 const requireEditor = requireRole('editor'); // alterar dados: Editor ou Admin
+// Coleta de dados de streams RTP/UDP (aba Coleta RTP)
+require('./coleta').setup(app, pool, { requireEditor, who: auth.who });
 
 app.get('/api/health', async (_req, res) => {
   try { await pool.query('SELECT 1'); res.json({ ok: true }); }

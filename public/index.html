@@ -214,6 +214,28 @@ table.users tr.off td{opacity:.6}
 .acts{display:flex;gap:6px;justify-content:flex-end}
 .rolesel{font:inherit;font-size:14px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
 .chip.c-off{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+/* coleta RTP */
+.srcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin:8px 0 16px}
+.src{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:grid;gap:6px;align-content:start}
+.src.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.srchead{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.src code.addr{font-family:var(--mono);font-size:15px;color:var(--fg)}
+.src small{color:var(--muted);font-size:12.5px}
+.srcacts{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.btn:disabled{opacity:.55;cursor:default}
+.ckh{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);flex-basis:100%}
+.when{font-family:var(--mono);font-size:13px;font-weight:400;color:var(--muted);margin-left:8px}
+.comp{display:inline-block;font-family:var(--mono);font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:1px 6px;margin:1px 0}
+.comp i{font-style:normal;color:var(--muted)}
+details.loose{margin:4px 0 8px}details.loose summary{cursor:pointer;color:var(--accent);font-size:14px;font-weight:600;padding:6px 0}
+.cobar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:10px;font-size:14px;color:var(--muted)}
+.cobar #coApply{margin-left:auto}
+table.props td{white-space:normal}
+table.props td.ck{width:36px;text-align:center}table.props td.ck input{width:17px;height:17px;accent-color:var(--accent);cursor:pointer}
+table.props tr.parea td{background:var(--head);font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--accent);position:static}
+table.props tr.blk td{opacity:.6}
+table.props td.note{font-size:12.5px;color:var(--muted);min-width:180px}
+table.props td:first-child{position:static;box-shadow:none}
 .resetbox{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:var(--warn-bg);color:var(--fg);border-radius:8px;padding:12px 14px;margin:0 0 12px;font-size:14px}
 .resetbox code{font-family:var(--mono);font-size:15px;background:var(--surface);padding:3px 8px;border-radius:5px;user-select:all}
 .resetbox span{flex-basis:100%;color:var(--muted);font-size:13px}
@@ -412,6 +434,7 @@ function views(B){
     tables:[{rows:auditLog.map(h=>({at:new Date(h.at).toLocaleString("pt-BR"),who:h.username||"—",ctx:h.context||`${h.tbl} #${h.row_id}`,field:h.field,old:h.old_value,new:h.new_value})),
       cols:[["Quando","at","txt"],["Quem","who","txt"],["Item","ctx","txt"],["Campo","field","txt"],["Antes","old","txt"],["Depois","new","txt"]]}],
     notes:[]},
+   ...(canEdit?{coleta:{tab:"Coleta RTP",custom:coletaPage}}:{}),
    ...(ME?.role==="admin"?{users:{tab:"Usuários",custom:usersPage}}:{})
   };
 }
@@ -600,7 +623,7 @@ const ADDERS={
 function setEditing(on){editing=on;$("editBtn").classList.toggle("on",on);$("editBtn").textContent=on?"Sair da edição":"Editar valores";render(true)}
 
 /* ===== Eventos ===== */
-$("tabs").addEventListener("click",async e=>{const b=e.target.closest(".tab");if(!b)return;view=b.dataset.v;if(view==="hist")auditLog=await api("/api/history").catch(()=>[]);if(view==="users")usersList=await api("/api/users").catch(()=>[]);location.hash=view;render()});
+$("tabs").addEventListener("click",async e=>{const b=e.target.closest(".tab");if(!b)return;view=b.dataset.v;if(view==="hist")auditLog=await api("/api/history").catch(()=>[]);if(view==="users")usersList=await api("/api/users").catch(()=>[]);if(view==="coleta"){CO=null;render();await loadColeta().catch(e=>toast(e.message,true))}location.hash=view;render()});
 $("app").addEventListener("click",e=>{
   const m=e.target.closest("[data-m]");if(m){taxMode=m.dataset.m;render(true);return}
   const th=e.target.closest("th button");if(th){const key=view+th.dataset.t,s=sorts[key];sorts[key]={k:th.dataset.k,asc:s&&s.k===th.dataset.k?!s.asc:true};renderTables();return}
@@ -694,6 +717,121 @@ $("app").addEventListener("submit",async e=>{if(e.target.id!=="userForm")return;
     const box=`Usuário <b>@${esc(b.username.trim().toLowerCase())}</b> criado. Senha provisória: <code>${esc(b.password)}</code>`;
     await reloadUsers("Usuário criado");$("resetBox").hidden=false;$("resetBox").innerHTML=box+"<span>Passe o usuário e a senha para a pessoa. Ela cria uma senha própria no primeiro acesso.</span>"}
   catch(err){$("nuMsg").textContent=err.message}},true);
+/* ===== Coleta RTP ===== */
+let CO=null,coRes=null,coSel=new Set(),coBusy=null,coEdit=null,coShowMissing=false,coTimer=null;
+const coNum=v=>v==null?"—":typeof v==="number"?nf.format(v):esc(v);
+async function loadColeta(){CO=await api("/api/coleta")}
+function coTargetsBoxes(sel){return Object.entries(CO.targets).map(([k,l])=>`<label><input type="checkbox" name="targets" value="${k}" ${sel.includes(k)?"checked":""}>${esc(l)}</label>`).join("")}
+function coForm(){
+  const s=coEdit?CO.sources.find(x=>x.id===coEdit):null,kind=s?.kind||"dvb",tg=s?s.targets:CO.kinds[kind].targets;
+  const ifs=CO.interfaces.filter(i=>!i.internal);
+  return `<form class="eqform" id="srcForm" autocomplete="off">
+    <h2>${s?`Editar stream: ${esc(s.name)}`:"Cadastrar stream"}</h2>
+    <div class="eqgrid">
+      <label>Nome *<input name="name" required value="${esc(s?.name||"")}" placeholder="Ex.: Mux DVB titular"></label>
+      <label>Tipo<select name="kind" id="cfKind">${Object.entries(CO.kinds).map(([k,v])=>`<option value="${k}" ${k===kind?"selected":""}>${esc(v.label)}</option>`).join("")}</select></label>
+      <label>Endereço multicast<input name="address" value="${esc(s?.address||"")}" inputmode="decimal" placeholder="239.1.1.1 (vazio = unicast)"></label>
+      <label>Porta UDP *<input name="port" required inputmode="numeric" value="${esc(s?.port??"")}" placeholder="5000"></label>
+      <label>Placa de rede<select name="iface"><option value="">Automática</option>${CO.interfaces.map(i=>`<option value="${esc(i.address)}" ${s?.iface===i.address?"selected":""}>${esc(i.name)} · ${esc(i.address)}${i.internal?" (local)":""}</option>`).join("")}${s?.iface&&!CO.interfaces.some(i=>i.address===s.iface)?`<option value="${esc(s.iface)}" selected>${esc(s.iface)} (não encontrada)</option>`:""}</select></label>
+      <label>Tempo de medição<select name="seconds">${[5,10,20,30,60].map(n=>`<option value="${n}" ${(s?.seconds||10)===n?"selected":""}>${n} segundos</option>`).join("")}</select></label>
+      <label>Origem (SSM)<input name="source_ip" value="${esc(s?.source_ip||"")}" inputmode="decimal" placeholder="opcional"></label>
+      <label>Equipamento<select name="equipment_id"><option value="">— nenhum —</option>${D.equipment.map(e=>`<option value="${e.id}" ${s?.equipment_id===e.id?"selected":""}>${esc([e.name,e.model].filter(Boolean).join(" · "))}</option>`).join("")}</select></label>
+      <div class="checks" id="cfTargets"><span class="ckh">Abas que esta coleta pode preencher</span>${coTargetsBoxes(tg)}</div>
+      <label class="wide">Observação<input name="notes" value="${esc(s?.notes||"")}"></label>
+    </div>
+    ${ifs.length>1?'<p class="hint">Esta máquina tem mais de uma placa de rede: escolha a que está ligada à rede do multicast.</p>':""}
+    <div class="eqactions"><button class="btn primary" type="submit">${s?"Salvar":"Cadastrar stream"}</button>${s?'<button class="btn" type="button" id="cfCancel">Cancelar</button>':""}<span class="msg" id="cfMsg"></span></div>
+  </form>`;
+}
+function coSources(){
+  if(!CO.sources.length)return `<div class="usage"><p class="hint" style="margin:0">Nenhum stream cadastrado. Cadastre abaixo o endereço multicast e a porta do mux DVB, do BTS ISDB-T ou da saída de um encoder.</p></div>`;
+  return `<div class="srcs">${CO.sources.map(s=>{const busy=coBusy===s.id,eq=s.equipment_id?D.equipment.find(e=>e.id===s.equipment_id):null;
+    return `<article class="src${coRes?.sourceId===s.id?" on":""}">
+      <div class="srchead"><b>${esc(s.name)}</b><span class="chip ${s.kind==="isdb"?"c-acc":s.kind==="encoder"?"c-warn":"c-ok"}">${esc(CO.kinds[s.kind].label)}</span></div>
+      <code class="addr">${s.address?esc(s.address):"unicast"}:${s.port}${s.source_ip?` · origem ${esc(s.source_ip)}`:""}</code>
+      <small>${s.iface?`Placa ${esc(s.iface)}`:"Placa automática"} · ${s.seconds} s${eq?` · ${esc(eq.name)}`:""}</small>
+      <small>${s.last_at?`Última: ${new Date(s.last_at).toLocaleString("pt-BR")} · ${esc(s.last_summary||"")}`:"Ainda não coletado"}</small>
+      <div class="srcacts">
+        <button type="button" class="btn primary sm" data-cocol="${s.id}" ${coBusy?"disabled":""}>${busy?'<span id="coCount">Medindo…</span>':"Coletar"}</button>
+        ${CO.last.find(m=>m.source_id===s.id)&&!busy?`<button type="button" class="btn sm" data-coopen="${CO.last.find(m=>m.source_id===s.id).id}" data-src="${s.id}">Última medição</button>`:""}
+        <button type="button" class="btn sm" data-coedit="${s.id}">Editar</button>
+        <button type="button" class="btn sm danger" data-codel="${s.id}">Excluir</button>
+      </div></article>`}).join("")}</div>`;
+}
+function coResult(){
+  if(!coRes)return "";
+  const r=coRes.result,o=coRes.opts,P=coRes.proposals;
+  const svc=r.programs.map(p=>{const m=coRes.matches.find(x=>x.program===p.program);
+    return `<tr><td><span class="svc"><span class="dot" style="background:${col(m?.service||p.name||String(p.program))}"></span><span>${esc(p.name||"(sem nome na SDT)")}<small>ID ${p.program}${p.provider?" · "+esc(p.provider):""}</small></span></span></td>
+      <td>${m?.service?`<span class="chip c-ok">${esc(m.service)}</span>`:'<span class="chip c-warn">novo</span>'}</td><td class="num">${p.pmtPid}</td><td class="num">${p.pcrPid??"—"}</td>
+      <td class="tx">${p.components.map(c=>`<span class="comp" title="${esc(c.codec||"")}">${c.pid} ${esc(c.ident==="PRIVATE SECTIONS"?"AIT":c.ident)}${c.lang?" "+esc(c.lang):""} <i>${nf.format(c.role==="video"?c.mbps:+(c.mbps*1000).toFixed(1))}${c.role==="video"?" Mbps":" kbps"}</i></span>`).join(" ")}</td>
+      ${r.isdb?`<td>${p.layer?`<span class="chip c-acc">Layer ${p.layer}</span>`:"—"}</td>`:""}<td class="num r">${nf.format(p.mbps)}</td></tr>`}).join("");
+  const loose=r.pids.filter(x=>!x.owner.length);
+  const layerBars=r.isdb?Object.entries(r.layers).filter(([,v])=>v.totalMbps).map(([l,v])=>usageBar(`Layer ${l} medida`,r.programs.filter(p=>p.layer===l).map(p=>({n:coRes.matches.find(x=>x.program===p.program)?.service||p.name||String(p.program),v:p.mbps})),v.totalMbps)).join(""):"";
+  const missing=P.filter(p=>!p.default&&/não apareceu/i.test(p.note||"")),shown=P.filter(p=>coShowMissing||!missing.includes(p));
+  const areas=[...new Set(shown.map(p=>p.area))];
+  const rows=areas.map(a=>`<tr class="parea"><td colspan="5">${esc(a)}</td></tr>`+shown.filter(p=>p.area===a).map(p=>{
+      const raw=/^(PID|ID de serviço)/.test(p.item),isNum=!raw&&typeof p.new==="number"&&typeof p.old==="number",d=isNum?+(p.new-p.old).toFixed(4):null,fv=v=>raw&&v!=null?esc(v):coNum(v);
+      return `<tr class="${p.blocked?"blk":""}"><td class="ck"><input type="checkbox" data-coid="${esc(p.id)}" ${coSel.has(p.id)?"checked":""} ${p.blocked?"disabled":""} aria-label="Gravar ${esc(p.group+" "+p.item)}"></td>
+        <td><b>${esc(p.group)}</b><small class="eqm">${esc(p.item)}</small></td><td class="num r">${fv(p.old)}</td><td class="num r"><b>${fv(p.new)}</b>${d?` <span class="dl ${d>0?"up":"down"}">${d>0?"+":""}${nf.format(d)}</span>`:""}</td>
+        <td class="tx note">${esc(p.blocked||p.note||"")}</td></tr>`}).join("")).join("");
+  const nSel=P.filter(p=>coSel.has(p.id)&&!p.blocked).length;
+  return `<section id="coResult">
+    <h2>Medição: ${esc(o.name)} <small class="when">${new Date(coRes.measurement.at).toLocaleString("pt-BR")}</small></h2>
+    <section class="cards">${card("Taxa total",nf.format(r.totalMbps),"Mbps",`${r.transport} · pacotes de ${r.packetSize} B · ${nf.format(r.seconds)} s`)+card("Útil",nf.format(r.payloadMbps),"Mbps",`Nulos ${nf.format(r.nullMbps)} Mbps`)+card("Serviços",r.programs.length,"",coRes.unmatched?`${coRes.unmatched} novo${coRes.unmatched>1?"s":""}`:"todos no cadastro")+card("Erros CC",r.ccErrors,"",r.rtp?`RTP perdidos: ${r.rtp.lost}`:"",r.ccErrors||r.rtp?.lost?"bad":"good")+card("Sistema",r.system,"",r.isdb?"Layer pelo BTS":r.tsid!=null?`TS ID ${r.tsid}`:"")}</section>
+    ${layerBars}
+    <div class="tablebox"><table><thead><tr><th class="plain">Serviço no stream</th><th class="plain">No cadastro</th><th class="plain">PMT</th><th class="plain">PCR</th><th class="plain">Componentes</th>${r.isdb?'<th class="plain">Layer</th>':""}<th class="plain r">Mbps</th></tr></thead><tbody>${svc||`<tr><td colspan="7" class="empty">Nenhum serviço na PAT.</td></tr>`}</tbody></table></div>
+    ${loose.length?`<details class="loose"><summary>Outros PIDs (${loose.length}): tabelas, nulos e PIDs sem serviço</summary><div class="tablebox"><table><thead><tr><th class="plain">PID</th><th class="plain">Tipo</th>${r.isdb?'<th class="plain">Layer</th>':""}<th class="plain r">Mbps</th><th class="plain r">Erros CC</th></tr></thead><tbody>${loose.map(x=>`<tr><td class="num">${x.pid}</td><td>${esc(x.table||"UNKNOWN")}</td>${r.isdb?`<td>${x.layer||"—"}</td>`:""}<td class="num r">${nf.format(x.mbps)}</td><td class="num r">${x.ccErrors}</td></tr>`).join("")}</tbody></table></div></details>`:""}
+    <h2>Mudanças propostas</h2>
+    ${P.length?`<div class="cobar"><span><b>${P.length}</b> diferença${P.length>1?"s":""} entre o stream e o banco · <b id="coN">${nSel}</b> marcada${nSel===1?"":"s"}</span>
+      <button type="button" class="btn sm" data-coall="1">Marcar todas</button><button type="button" class="btn sm" data-coall="0">Desmarcar todas</button>
+      ${missing.length?`<button type="button" class="btn sm" id="coMiss">${coShowMissing?"Esconder":"Mostrar"} ${missing.length} ite${missing.length>1?"ns":"m"} que não apareceram no stream</button>`:""}
+      <button type="button" class="btn primary" id="coApply" ${nSel?"":"disabled"}>Gravar ${nSel} marcada${nSel===1?"":"s"}</button></div>
+      <div class="tablebox"><table class="props"><thead><tr><th class="plain"></th><th class="plain">Onde</th><th class="plain r">No banco</th><th class="plain r">Medido</th><th class="plain">Observação</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="hint">Nada é gravado sem você confirmar. Cada valor gravado vai para o Histórico com o seu nome e a data da medição.</p>`
+    :`<div class="usage"><p style="margin:0">O banco já está igual ao stream nas abas escolhidas (${esc(o.targets.map(t=>CO.targets[t]).join(", "))}).</p></div>`}
+  </section>`;
+}
+function coletaPage(){
+  if(!CO)return `<p class="state">Carregando…</p>`;
+  return `<section class="hero"><span class="eyebrow">Coleta · RTP / UDP multicast</span><h1>Coleta de dados dos streams</h1>
+    <p class="lede">O sistema recebe o stream por alguns segundos, lê PAT, PMT e SDT, mede a taxa de cada PID (e a layer ISDB-T no BTS) e mostra o que está diferente do banco. Você escolhe o que gravar.</p></section>
+    ${coSources()}${coResult()}${coForm()}
+    <div class="notes"><p>O servidor precisa estar na rede do multicast. No Linux, o instalador libera UDP multicast no firewall. Numa VM, use a placa de rede em modo Bridge.</p><p>Para testar sem o equipamento: <code>node tools/enviar-rtp.js arquivo.ts 239.1.1.1:5000 --mbps 32.297</code> envia um arquivo .ts pela rede.</p></div>`;
+}
+function coRender(keep){const y=scrollY;render();if(keep)scrollTo(0,y)}
+function coSetResult(j,srcId){coRes={...j,sourceId:srcId};coSel=new Set(j.proposals.filter(p=>p.default&&!p.blocked).map(p=>p.id))}
+$("app").addEventListener("click",async e=>{
+  if(view!=="coleta")return;
+  const t=e.target;
+  const c=t.closest("[data-cocol]");if(c){const id=+c.dataset.cocol,s=CO.sources.find(x=>x.id===id);coBusy=id;coRender(true);
+    const t0=Date.now();coTimer=setInterval(()=>{const el=$("coCount");if(el)el.textContent=`Medindo… ${Math.max(0,s.seconds-Math.floor((Date.now()-t0)/1000))} s`},250);
+    try{const j=await api("/api/coleta/medir",{method:"POST",body:JSON.stringify({source_id:id})});coSetResult(j,id);await loadColeta();coBusy=null;coRender(true);$("coResult")?.scrollIntoView({behavior:"smooth",block:"start"})}
+    catch(err){coBusy=null;coRender(true);toast(err.message,true)}finally{clearInterval(coTimer)}return}
+  const op=t.closest("[data-coopen]");if(op){try{const j=await api(`/api/coleta/medicoes/${op.dataset.coopen}`);coSetResult(j,+op.dataset.src);coRender(true);$("coResult")?.scrollIntoView({behavior:"smooth",block:"start"})}catch(err){toast(err.message,true)}return}
+  const ed=t.closest("[data-coedit]");if(ed){coEdit=+ed.dataset.coedit;coRender(true);$("srcForm")?.scrollIntoView({behavior:"smooth",block:"center"});return}
+  if(t.id==="cfCancel"){coEdit=null;coRender(true);return}
+  const dl=t.closest("[data-codel]");if(dl){if(dl.dataset.armed!=="1"){dl.dataset.armed="1";dl.textContent="Confirmar exclusão";setTimeout(()=>{if(dl.isConnected){dl.dataset.armed="";dl.textContent="Excluir"}},4000);return}
+    try{await api(`/api/coleta/fontes/${dl.dataset.codel}`,{method:"DELETE"});if(coRes?.sourceId===+dl.dataset.codel)coRes=null;await loadColeta();coRender(true);toast("Stream excluído")}catch(err){toast(err.message,true)}return}
+  const all=t.closest("[data-coall]");if(all){coSel=new Set(all.dataset.coall==="1"?coRes.proposals.filter(p=>!p.blocked&&(coShowMissing||p.default||!/não apareceu/i.test(p.note||""))).map(p=>p.id):[]);coRender(true);return}
+  if(t.id==="coMiss"){coShowMissing=!coShowMissing;coRender(true);return}
+  if(t.id==="coApply"){const ids=[...coSel];t.disabled=true;t.textContent="Gravando…";
+    try{const r=await api("/api/coleta/aplicar",{method:"POST",body:JSON.stringify({measurement_id:coRes.measurement.id,ids})});
+      D=await api("/api/data");const j=await api(`/api/coleta/medicoes/${coRes.measurement.id}`);coSetResult(j,coRes.sourceId);coRender(true);
+      toast(`${r.applied} valor${r.applied===1?"":"es"} gravado${r.applied===1?"":"s"}${r.skipped.length?` · ${r.skipped.length} ignorado${r.skipped.length>1?"s":""}`:""}`)}
+    catch(err){t.disabled=false;t.textContent="Gravar marcadas";toast(err.message,true)}return}
+});
+$("app").addEventListener("change",e=>{
+  if(view!=="coleta")return;
+  const cb=e.target.closest("[data-coid]");if(cb){cb.checked?coSel.add(cb.dataset.coid):coSel.delete(cb.dataset.coid);const n=coRes.proposals.filter(p=>coSel.has(p.id)&&!p.blocked).length;
+    $("coN").textContent=n;const b=$("coApply");b.disabled=!n;b.textContent=`Gravar ${n} marcada${n===1?"":"s"}`;return}
+  if(e.target.id==="cfKind"&&!coEdit){$("cfTargets").innerHTML=`<span class="ckh">Abas que esta coleta pode preencher</span>${coTargetsBoxes(CO.kinds[e.target.value].targets)}`}
+});
+$("app").addEventListener("submit",async e=>{if(e.target.id!=="srcForm")return;e.preventDefault();e.stopImmediatePropagation();
+  const fd=new FormData(e.target),b=Object.fromEntries(fd.entries());b.targets=fd.getAll("targets");$("cfMsg").textContent="";
+  try{const s=await api(coEdit?`/api/coleta/fontes/${coEdit}`:"/api/coleta/fontes",{method:coEdit?"PUT":"POST",body:JSON.stringify(b)});
+    toast(coEdit?"Stream alterado":`${s.name} cadastrado`);coEdit=null;await loadColeta();coRender(true)}
+  catch(err){$("cfMsg").textContent=err.message}},true);
 /* ===== Fundo animado do login: sinal BTS comprimido subindo para o satélite ===== */
 const uplinkBg=(()=>{
   const cv=document.getElementById("authBg"),ctx=cv.getContext("2d");
@@ -841,8 +979,10 @@ async function start(user){
   $("menuName").textContent=user.name;$("menuRole").textContent=user.roleLabel;$("menuUser").textContent="@"+user.username;
   if(user.mustChange)return showPassword(true);
   try{D=await api("/api/data");canEdit=D.editable;$("editBtn").hidden=!canEdit;
-    const h=location.hash.slice(1);if(["pids","dvb","old","taxas","isdb","svcs","equip","hist","users"].includes(h))view=h;
+    const h=location.hash.slice(1);if(["pids","dvb","old","taxas","isdb","svcs","equip","hist","users","coleta"].includes(h))view=h;
     if(view==="users"&&user.role!=="admin")view="pids";
+    if(view==="coleta"&&!canEdit)view="pids";
+    if(view==="coleta")await loadColeta().catch(()=>{});
     if(view==="hist")auditLog=await api("/api/history").catch(()=>[]);
     if(view==="users")usersList=await api("/api/users").catch(()=>[]);
     render();

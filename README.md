@@ -13,9 +13,39 @@ Sistema web do estudo **BTS Compress (03/08/2026)**: serviços, PIDs e bitrates 
 - **Incluir e excluir linhas**: no modo edição, cada tabela tem uma barra **+ Incluir** e um botão **Excluir** por linha (com confirmação).
 - **Equipamentos**: cadastro de encoders, multiplexadores e outros (nome, fabricante, modelo, função, local, nº de série). O equipamento de cada serviço é escolhido nas abas DVB atual, Taxas e ISDB-T.
 - **Login e usuários**: tela de login obrigatória, perfis **Admin** (gerencia usuários), **Editor** (altera dados) e **Leitura** (só consulta). Aba **Usuários** para o Admin.
+- **Coleta RTP**: recebe o stream do mux DVB, do BTS ISDB-T ou de um encoder (RTP ou UDP, multicast ou unicast), lê PAT, PMT e SDT e mede a taxa de cada PID e a layer ISDB-T. Mostra o que está diferente do banco e grava só o que você marcar (veja abaixo).
 - **Histórico**: toda alteração, entrada e saída fica registrada com quem fez, valor anterior, novo e horário.
 
 Os totais, sobras e percentuais são recalculados a partir do banco a cada edição.
+
+## Coleta RTP
+
+Aba **Coleta RTP** (perfis Editor e Admin):
+
+1. **Cadastre o stream**: nome, tipo (Mux DVB, BTS ISDB-T ou saída de encoder), endereço multicast e porta (ex.: `239.1.1.1` e `5000`), placa de rede e o que essa coleta pode preencher.
+2. **Clique em Coletar**: o sistema escuta o stream de 5 a 60 segundos.
+3. **Revise**: aparecem os serviços encontrados (com PMT, PCR, componentes, taxa e layer) e a lista de diferenças entre o stream e o banco, aba por aba.
+4. **Grave**: marque o que quer gravar e clique em **Gravar**. Cada valor vai para o Histórico com o seu nome e a data da medição.
+
+O que a coleta preenche:
+
+| Aba | Dados |
+|---|---|
+| Serviços & PIDs | ID de serviço, codificação, PIDs (vídeo, áudios, PCR, PMT, CC, AIT, DEM, ECT, dados) e bitrate do serviço |
+| DVB atual | bitrate titular ou reserva, e o encoder escolhido no stream |
+| Taxas encoder / mux | áudios e CC em kbps, vídeo em Mbps |
+| ISDB-T | bitrate e layer de cada serviço, linha de tabelas, capacidade da layer B e taxa de cada PID |
+
+Serviços que estão no stream mas não no cadastro aparecem como **novo** e podem ser cadastrados na hora. O serviço do stream é ligado ao do cadastro pelo PID da PMT, depois pelo ID de serviço e por fim pelo nome.
+
+O servidor precisa estar na mesma rede do multicast (numa VM, placa em modo **Bridge**). O instalador libera UDP multicast no firewall. No Docker, a coleta só recebe multicast com `network_mode: host`.
+
+Pelo terminal do servidor:
+
+```bash
+node /opt/bts-compress/tools/analisar-rtp.js 239.1.1.1:5000 --segundos 10     # mede e mostra o resultado
+node /opt/bts-compress/tools/enviar-rtp.js arquivo.ts 239.1.1.1:5000 --mbps 32.297 --repetir   # gera um stream de teste a partir de um .ts
+```
 
 ## Instalar em servidor Linux
 
@@ -134,6 +164,8 @@ Para recarregar os dados originais, apague as tabelas e reinicie o serviço.
 | `users`         | Usuários, perfis e senhas (criptografadas com scrypt)       |
 | `sessions`      | Sessões de login abertas                                    |
 | `audit_log`     | Histórico de alterações, com o usuário que fez              |
+| `stream_sources` | Streams cadastrados na Coleta RTP (endereço, porta, placa, abas) |
+| `stream_measurements` | Medições feitas, com o resultado completo da análise    |
 
 ## Segurança
 
