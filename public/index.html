@@ -734,8 +734,6 @@ function coForm(){
       <label>Porta UDP *<input name="port" required inputmode="numeric" value="${esc(s?.port??"")}" placeholder="5000"></label>
       <label>Placa de rede<select name="iface"><option value="">Automática</option>${CO.interfaces.map(i=>`<option value="${esc(i.address)}" ${s?.iface===i.address?"selected":""}>${esc(i.name)} · ${esc(i.address)}${i.internal?" (local)":""}</option>`).join("")}${s?.iface&&!CO.interfaces.some(i=>i.address===s.iface)?`<option value="${esc(s.iface)}" selected>${esc(s.iface)} (não encontrada)</option>`:""}</select></label>
       <label>Tempo de medição<select name="seconds">${[5,10,20,30,60].map(n=>`<option value="${n}" ${(s?.seconds||10)===n?"selected":""}>${n} segundos</option>`).join("")}</select></label>
-      <label>Origem (SSM)<input name="source_ip" value="${esc(s?.source_ip||"")}" inputmode="decimal" placeholder="opcional"></label>
-      <label>Equipamento<select name="equipment_id"><option value="">— nenhum —</option>${D.equipment.map(e=>`<option value="${e.id}" ${s?.equipment_id===e.id?"selected":""}>${esc([e.name,e.model].filter(Boolean).join(" · "))}</option>`).join("")}</select></label>
       <div class="checks" id="cfTargets"><span class="ckh">Abas que esta coleta pode preencher</span>${coTargetsBoxes(tg)}</div>
       <label class="wide">Observação<input name="notes" value="${esc(s?.notes||"")}"></label>
     </div>
