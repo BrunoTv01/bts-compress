@@ -40,7 +40,7 @@ Serviços que estão no stream mas não no cadastro aparecem como **novo** e pod
 
 O servidor precisa estar na mesma rede do multicast (numa VM, placa em modo **Bridge**). O instalador libera UDP multicast no firewall. No Docker, a coleta só recebe multicast com `network_mode: host`.
 
-**Testar sem equipamento**: `sudo bash /opt/bts-compress/deploy/teste-coleta.sh` gera dentro da própria máquina um mux DVB e um BTS ISDB-T simulados (com os serviços e PIDs da planilha, layers A e B), mede pelo terminal e cadastra os dois na aba Coleta RTP. Os streams não saem da máquina (TTL 0) e desligam sozinhos em 15 minutos. São dados de teste: não grave os valores.
+**Testar sem equipamento**: na aba Coleta RTP, clique em **Iniciar teste**. O servidor gera um mux DVB e um BTS ISDB-T simulados e cadastra os dois como streams **TESTE**; clique em Coletar neles. As medições de teste não podem ser gravadas. Pelo terminal, o mesmo teste: `sudo bash /opt/bts-compress/deploy/teste-coleta.sh` gera dentro da própria máquina um mux DVB e um BTS ISDB-T simulados (com os serviços e PIDs da planilha, layers A e B), mede pelo terminal e cadastra os dois na aba Coleta RTP. Os streams não saem da máquina (TTL 0) e desligam sozinhos em 15 minutos. São dados de teste: não grave os valores.
 
 Pelo terminal do servidor:
 

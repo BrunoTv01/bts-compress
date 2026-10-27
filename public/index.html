@@ -215,6 +215,9 @@ table.users tr.off td{opacity:.6}
 .rolesel{font:inherit;font-size:14px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
 .chip.c-off{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
 /* coleta RTP */
+.testbox{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:var(--surface);border:1px dashed var(--accent);border-radius:8px;padding:12px 14px;margin:8px 0;font-size:14px;color:var(--muted)}
+.testbox>span:not(.chip){flex:1 1 320px}.testbox b{color:var(--fg)}
+.testbox.on{border-style:solid;border-color:var(--warn);background:var(--warn-bg);color:var(--fg)}
 .srcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin:8px 0 16px}
 .src{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:grid;gap:6px;align-content:start}
 .src.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
@@ -743,7 +746,7 @@ function coSources(){
   if(!CO.sources.length)return `<div class="usage"><p class="hint" style="margin:0">Nenhum stream cadastrado. Cadastre abaixo o endereço multicast e a porta do mux DVB, do BTS ISDB-T ou da saída de um encoder.</p></div>`;
   return `<div class="srcs">${CO.sources.map(s=>{const busy=coBusy===s.id,eq=s.equipment_id?D.equipment.find(e=>e.id===s.equipment_id):null;
     return `<article class="src${coRes?.sourceId===s.id?" on":""}">
-      <div class="srchead"><b>${esc(s.name)}</b>${s.kind==="auto"?"":`<span class="chip ${s.kind==="isdb"?"c-acc":s.kind==="encoder"?"c-warn":"c-ok"}">${esc(CO.kinds[s.kind].label)}</span>`}</div>
+      <div class="srchead"><b>${esc(s.name)}</b>${s.name.startsWith("TESTE · ")?'<span class="chip c-warn">TESTE</span>':""}${s.kind==="auto"?"":`<span class="chip ${s.kind==="isdb"?"c-acc":s.kind==="encoder"?"c-warn":"c-ok"}">${esc(CO.kinds[s.kind].label)}</span>`}</div>
       ${s.name===`${s.address||"unicast"}:${s.port}`?"":`<code class="addr">${s.address?esc(s.address):"unicast"}:${s.port}</code>`}
       <small>${s.iface?`Placa ${esc(s.iface)}`:"Placa automática"} · ${s.seconds} s${eq?` · ${esc(eq.name)}`:""}</small>
       <small>${s.last_at?`Última: ${new Date(s.last_at).toLocaleString("pt-BR")} · ${esc(s.last_summary||"")}`:"Ainda não coletado"}</small>
@@ -771,7 +774,7 @@ function coResult(){
       return `<tr class="${p.blocked?"blk":""}"><td class="ck"><input type="checkbox" data-coid="${esc(p.id)}" ${coSel.has(p.id)?"checked":""} ${p.blocked?"disabled":""} aria-label="Gravar ${esc(p.group+" "+p.item)}"></td>
         <td><b>${esc(p.group)}</b><small class="eqm">${esc(p.item)}</small></td><td class="num r">${fv(p.old)}</td><td class="num r"><b>${fv(p.new)}</b>${d?` <span class="dl ${d>0?"up":"down"}">${d>0?"+":""}${nf.format(d)}</span>`:""}</td>
         <td class="tx note">${esc(p.blocked||p.note||"")}</td></tr>`}).join("")).join("");
-  const nSel=P.filter(p=>coSel.has(p.id)&&!p.blocked).length;
+  const nSel=P.filter(p=>coSel.has(p.id)&&!p.blocked).length,isTest=!!o.test;
   return `<section id="coResult">
     <h2>Medição: ${esc(o.name)} <small class="when">${new Date(coRes.measurement.at).toLocaleString("pt-BR")}</small></h2>
     <section class="cards">${card("Taxa total",nf.format(r.totalMbps),"Mbps",`${r.transport} · pacotes de ${r.packetSize} B · ${nf.format(r.seconds)} s`)+card("Útil",nf.format(r.payloadMbps),"Mbps",`Nulos ${nf.format(r.nullMbps)} Mbps`)+card("Serviços",r.programs.length,"",coRes.unmatched?`${coRes.unmatched} novo${coRes.unmatched>1?"s":""}`:"todos no cadastro")+card("Erros CC",r.ccErrors,"",r.rtp?`RTP perdidos: ${r.rtp.lost}`:"",r.ccErrors||r.rtp?.lost?"bad":"good")+card("Sistema",r.system,"",r.isdb?"Layer pelo BTS":r.tsid!=null?`TS ID ${r.tsid}`:"")}</section>
@@ -782,18 +785,24 @@ function coResult(){
     ${P.length?`<div class="cobar"><span><b>${P.length}</b> diferença${P.length>1?"s":""} entre o stream e o banco · <b id="coN">${nSel}</b> marcada${nSel===1?"":"s"}</span>
       <button type="button" class="btn sm" data-coall="1">Marcar todas</button><button type="button" class="btn sm" data-coall="0">Desmarcar todas</button>
       ${missing.length?`<button type="button" class="btn sm" id="coMiss">${coShowMissing?"Esconder":"Mostrar"} ${missing.length} ite${missing.length>1?"ns":"m"} que não apareceram no stream</button>`:""}
-      <button type="button" class="btn primary" id="coApply" ${nSel?"":"disabled"}>Gravar ${nSel} marcada${nSel===1?"":"s"}</button></div>
+      ${isTest?'<button type="button" class="btn" disabled>Teste: nada é gravado</button>':`<button type="button" class="btn primary" id="coApply" ${nSel?"":"disabled"}>Gravar ${nSel} marcada${nSel===1?"":"s"}</button>`}</div>
+      ${isTest?'<div class="resetbox"><b>Medição de teste.</b><span>O stream é simulado: a lista mostra o que a coleta faria com um stream de verdade, mas esses valores não podem ser gravados.</span></div>':""}
       <div class="tablebox"><table class="props"><thead><tr><th class="plain"></th><th class="plain">Onde</th><th class="plain r">No banco</th><th class="plain r">Medido</th><th class="plain">Observação</th></tr></thead><tbody>${rows}</tbody></table></div>
       <p class="hint">Nada é gravado sem você confirmar. Cada valor gravado vai para o Histórico com o seu nome e a data da medição.</p>`
     :`<div class="usage"><p style="margin:0">O banco já está igual ao stream nas abas escolhidas (${esc(o.targets.map(t=>CO.targets[t]).join(", "))}).</p></div>`}
   </section>`;
+}
+function coTestBox(){
+  const t=CO.test||{};
+  if(t.running)return `<div class="testbox on"><span class="chip c-warn">Teste local ligado</span><span>Streams simulados até <b>${new Date(t.until).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</b> · ${t.mode==="multicast"?`multicast pela placa ${esc(t.iface)}`:"unicast dentro do servidor"}. Clique em <b>Coletar</b> nos streams <b>TESTE</b> abaixo.</span><button type="button" class="btn sm" id="coTestStop">Parar teste</button></div>`;
+  return `<div class="testbox"><span><b>Teste local</b> · gera dentro do servidor um mux DVB e um BTS ISDB-T simulados, com os serviços e PIDs da planilha, para testar a coleta sem equipamento. Nada sai para a rede e nada é gravado.</span><button type="button" class="btn primary sm" id="coTestStart">Iniciar teste</button></div>`;
 }
 function coletaPage(){
   if(!CO)return `<p class="state">Carregando…</p>`;
   return `<section class="hero"><span class="eyebrow">Coleta · RTP / UDP multicast</span><h1>Coleta de dados dos streams</h1>
     <p class="lede">O sistema recebe o stream por alguns segundos, lê PAT, PMT e SDT, mede a taxa de cada PID (e a layer ISDB-T no BTS) e mostra o que está diferente do banco. Você escolhe o que gravar.</p></section>
     ${CO.cloud?`<div class="resetbox"><b>Este sistema está na nuvem (Render).</b><span>A coleta só funciona no servidor instalado na rede da emissora (VM ou servidor Linux), porque o multicast dos equipamentos não sai da rede local. Aqui dá para cadastrar os streams e ver as medições, mas o botão Coletar não vai receber pacotes.</span></div>`:""}
-    ${coSources()}${coResult()}${coForm()}
+    ${coTestBox()}${coSources()}${coResult()}${coForm()}
     <div class="notes"><p>O servidor precisa estar na rede do multicast. No Linux, o instalador libera UDP multicast no firewall. Numa VM, use a placa de rede em modo Bridge.</p><p>Para testar sem o equipamento: <code>node tools/enviar-rtp.js arquivo.ts 239.1.1.1:5000 --mbps 32.297</code> envia um arquivo .ts pela rede.</p></div>`;
 }
 function coRender(keep){const y=scrollY;render();if(keep)scrollTo(0,y)}
@@ -817,6 +826,13 @@ $("app").addEventListener("click",async e=>{
       D=await api("/api/data");const j=await api(`/api/coleta/medicoes/${coRes.measurement.id}`);coSetResult(j,coRes.sourceId);coRender(true);
       toast(`${r.applied} valor${r.applied===1?"":"es"} gravado${r.applied===1?"":"s"}${r.skipped.length?` · ${r.skipped.length} ignorado${r.skipped.length>1?"s":""}`:""}`)}
     catch(err){t.disabled=false;t.textContent="Gravar marcadas";toast(err.message,true)}return}
+});
+$("app").addEventListener("click",async e=>{
+  if(view!=="coleta")return;
+  const b=e.target.closest("#coTestStart,#coTestStop");if(!b)return;
+  const start=b.id==="coTestStart";b.disabled=true;b.textContent=start?"Ligando…":"Parando…";
+  try{await api("/api/coleta/teste",{method:"POST",body:JSON.stringify({acao:start?"iniciar":"parar"})});if(!start&&coRes?.opts?.test)coRes=null;await loadColeta();coRender(true);toast(start?"Teste local ligado":"Teste local desligado")}
+  catch(err){toast(err.message,true);b.disabled=false;b.textContent=start?"Iniciar teste":"Parar teste"}
 });
 $("app").addEventListener("change",e=>{
   if(view!=="coleta")return;

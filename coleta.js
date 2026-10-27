@@ -1,6 +1,32 @@
 // Coleta de dados de streams RTP/UDP: mede o TS, compara com o banco e grava só o que o usuário aprovar.
 'use strict';
+const path = require('path');
+const { spawn } = require('child_process');
 const { capture, interfaces, isIPv4 } = require('./ts/capture');
+
+/* ---------- teste local: streams simulados gerados dentro do próprio servidor ---------- */
+const TEST_PREFIX = 'TESTE · ';
+const TEST_STREAMS = [
+  { profile: 'dvb', name: TEST_PREFIX + 'Mux DVB (simulado)', kind: 'dvb', group: '239.255.10.1', port: 5500, targets: ['pids', 'pids_total', 'mux'] },
+  { profile: 'isdb', name: TEST_PREFIX + 'BTS ISDB-T (simulado)', kind: 'isdb', group: '239.255.10.2', port: 5502, targets: ['pids', 'isdb_layers', 'isdb_pids'] },
+];
+const test = { procs: [], until: null, mode: null, iface: null, timer: null };
+function stopTest() {
+  for (const p of test.procs) { try { p.kill(); } catch { /* já parou */ } }
+  test.procs = []; test.until = null; test.mode = null; clearTimeout(test.timer);
+}
+process.on('exit', stopTest);
+function startGenerators(mode, iface, minutes) {
+  const script = path.join(__dirname, 'tools', 'stream-teste.js');
+  for (const t of TEST_STREAMS) {
+    const dest = mode === 'multicast' ? `${t.group}:${t.port}` : `127.0.0.1:${t.port}`;
+    const args = [script, t.profile, dest, '--ttl', '0', '--minutos', String(minutes), ...(mode === 'multicast' && iface ? ['--placa', iface] : [])];
+    const p = spawn(process.execPath, args, { stdio: 'ignore' });
+    p.on('exit', () => { test.procs = test.procs.filter(x => x !== p); if (!test.procs.length) { test.until = null; test.mode = null; } });
+    test.procs.push(p);
+  }
+}
+const testStatus = () => ({ running: test.procs.length > 0, until: test.until, mode: test.mode, iface: test.iface });
 
 const TARGETS = {
   pids:        'Serviços & PIDs · PIDs, ID e codificação',
@@ -300,7 +326,44 @@ function setup(app, pool, { requireEditor, who }) {
   app.get('/api/coleta', requireEditor, wrap(async (_req, res) => {
     const sources = (await q('SELECT * FROM stream_sources ORDER BY lower(name), id')).map(pub);
     const last = await q(`SELECT DISTINCT ON (source_id) id, source_id, at, username, applied FROM stream_measurements ORDER BY source_id, at DESC`);
-    res.json({ sources, last, interfaces: interfaces(), cloud: !!process.env.RENDER, targets: TARGETS, kinds: Object.fromEntries(Object.entries(KINDS).map(([k, v]) => [k, { label: v.label, targets: v.targets }])) });
+    res.json({ sources, last, interfaces: interfaces(), cloud: !!process.env.RENDER, test: testStatus(), targets: TARGETS, kinds: Object.fromEntries(Object.entries(KINDS).map(([k, v]) => [k, { label: v.label, targets: v.targets }])) });
+  }));
+
+  // Teste local: { acao: 'iniciar' | 'parar', minutos }
+  app.post('/api/coleta/teste', requireEditor, wrap(async (req, res) => {
+    const b = req.body || {};
+    if (b.acao === 'parar') {
+      stopTest();
+      await q('DELETE FROM stream_sources WHERE name LIKE $1', [TEST_PREFIX + '%']);
+      await audit(pool, 'stream_sources', '-', 'teste local', null, 'parado', 'Coleta RTP · teste local desligado');
+      return res.json(testStatus());
+    }
+    const minutes = Math.min(60, Math.max(1, Number(b.minutos) || 15));
+    stopTest();
+    // 1) multicast pela placa principal (testa o mesmo caminho do stream real); 2) se não der, unicast local
+    const iface = interfaces().find(i => !i.internal)?.address || '127.0.0.1';
+    let mode = 'multicast';
+    startGenerators(mode, iface, minutes);
+    await new Promise(r => setTimeout(r, 1200));
+    try { await capture({ address: TEST_STREAMS[0].group, port: TEST_STREAMS[0].port, iface, seconds: 2 }); }
+    catch {
+      stopTest(); mode = 'unicast';
+      startGenerators(mode, null, minutes);
+      await new Promise(r => setTimeout(r, 1200));
+      try { await capture({ address: '127.0.0.1', port: TEST_STREAMS[0].port, seconds: 2 }); }
+      catch (e) { stopTest(); throw Object.assign(new Error('Não consegui receber nem o stream de teste gerado aqui: ' + e.message), { status: 500 }); }
+    }
+    test.mode = mode; test.iface = mode === 'multicast' ? iface : null; test.until = new Date(Date.now() + minutes * 60000).toISOString();
+    test.timer = setTimeout(stopTest, minutes * 60000 + 2000);
+    for (const t of TEST_STREAMS) {
+      const address = mode === 'multicast' ? t.group : '127.0.0.1', ifc = mode === 'multicast' ? iface : null;
+      const [row] = await q('SELECT id FROM stream_sources WHERE name=$1', [t.name]);
+      if (row) await q('UPDATE stream_sources SET kind=$1, address=$2, port=$3, iface=$4, seconds=5, targets=$5 WHERE id=$6', [t.kind, address, t.port, ifc, JSON.stringify(t.targets), row.id]);
+      else await q('INSERT INTO stream_sources (name,kind,address,port,iface,seconds,targets,notes) VALUES ($1,$2,$3,$4,$5,5,$6,$7)',
+        [t.name, t.kind, address, t.port, ifc, JSON.stringify(t.targets), 'Stream simulado pelo teste local. Os valores não podem ser gravados.']);
+    }
+    await audit(pool, 'stream_sources', '-', 'teste local', null, `${mode} por ${minutes} min`, 'Coleta RTP · teste local ligado');
+    res.json(testStatus());
   }));
 
   app.post('/api/coleta/fontes', requireEditor, wrap(async (req, res) => {
@@ -337,7 +400,7 @@ function setup(app, pool, { requireEditor, who }) {
       const [row] = await q('SELECT * FROM stream_sources WHERE id=$1', [b.source_id]);
       if (!row) return res.status(404).json({ error: 'Stream não encontrado. Atualize a página.' });
       src = pub(row);
-      opts = { kind: src.kind, targets: Array.isArray(b.targets) ? b.targets.filter(t => TARGETS[t]) : src.targets, equipment_id: src.equipment_id, name: src.name };
+      opts = { kind: src.kind, targets: Array.isArray(b.targets) ? b.targets.filter(t => TARGETS[t]) : src.targets, equipment_id: src.equipment_id, name: src.name, test: src.name.startsWith(TEST_PREFIX) };
     } else {
       const s = parseSource(b); s.kind = s.kind || 'auto';
       src = { ...s, targets: JSON.parse(s.targets) };
@@ -378,6 +441,7 @@ function setup(app, pool, { requireEditor, who }) {
     const [m] = await q('SELECT * FROM stream_measurements WHERE id=$1', [measurement_id]);
     if (!m) return res.status(404).json({ error: 'Medição não encontrada. Colete de novo.' });
     const opts = JSON.parse(m.opts), result = JSON.parse(m.result);
+    if (opts.test) return res.status(400).json({ error: 'Medição de teste: os valores são simulados e não podem ser gravados.' });
     const want = new Set(ids.map(String));
     const c = await pool.connect();
     let applied = 0;
