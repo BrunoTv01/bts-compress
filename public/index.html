@@ -792,6 +792,7 @@ function coletaPage(){
   if(!CO)return `<p class="state">Carregando…</p>`;
   return `<section class="hero"><span class="eyebrow">Coleta · RTP / UDP multicast</span><h1>Coleta de dados dos streams</h1>
     <p class="lede">O sistema recebe o stream por alguns segundos, lê PAT, PMT e SDT, mede a taxa de cada PID (e a layer ISDB-T no BTS) e mostra o que está diferente do banco. Você escolhe o que gravar.</p></section>
+    ${CO.cloud?`<div class="resetbox"><b>Este sistema está na nuvem (Render).</b><span>A coleta só funciona no servidor instalado na rede da emissora (VM ou servidor Linux), porque o multicast dos equipamentos não sai da rede local. Aqui dá para cadastrar os streams e ver as medições, mas o botão Coletar não vai receber pacotes.</span></div>`:""}
     ${coSources()}${coResult()}${coForm()}
     <div class="notes"><p>O servidor precisa estar na rede do multicast. No Linux, o instalador libera UDP multicast no firewall. Numa VM, use a placa de rede em modo Bridge.</p><p>Para testar sem o equipamento: <code>node tools/enviar-rtp.js arquivo.ts 239.1.1.1:5000 --mbps 32.297</code> envia um arquivo .ts pela rede.</p></div>`;
 }

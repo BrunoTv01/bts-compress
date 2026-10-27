@@ -300,7 +300,7 @@ function setup(app, pool, { requireEditor, who }) {
   app.get('/api/coleta', requireEditor, wrap(async (_req, res) => {
     const sources = (await q('SELECT * FROM stream_sources ORDER BY lower(name), id')).map(pub);
     const last = await q(`SELECT DISTINCT ON (source_id) id, source_id, at, username, applied FROM stream_measurements ORDER BY source_id, at DESC`);
-    res.json({ sources, last, interfaces: interfaces(), targets: TARGETS, kinds: Object.fromEntries(Object.entries(KINDS).map(([k, v]) => [k, { label: v.label, targets: v.targets }])) });
+    res.json({ sources, last, interfaces: interfaces(), cloud: !!process.env.RENDER, targets: TARGETS, kinds: Object.fromEntries(Object.entries(KINDS).map(([k, v]) => [k, { label: v.label, targets: v.targets }])) });
   }));
 
   app.post('/api/coleta/fontes', requireEditor, wrap(async (req, res) => {
