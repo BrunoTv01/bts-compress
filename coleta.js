@@ -13,6 +13,7 @@ const TARGETS = {
   isdb_pids:   'ISDB-T · PIDs e taxas',
 };
 const KINDS = {
+  auto:    { label: 'Automático', system: null, targets: ['pids', 'pids_total', 'mux', 'isdb_layers', 'isdb_pids'] },
   dvb:     { label: 'Mux DVB (satélite)', system: 'DVB', targets: ['pids', 'pids_total', 'mux'] },
   isdb:    { label: 'BTS ISDB-T', system: 'ISDB-T', targets: ['pids', 'isdb_layers', 'isdb_pids'] },
   encoder: { label: 'Saída de encoder', system: null, targets: ['enc'] },
@@ -271,16 +272,16 @@ async function applyOne(c, p, ctx, audit) {
 }
 
 function parseSource(b) {
-  const name = String(b.name || '').trim().slice(0, 120);
-  const kind = KINDS[b.kind] ? b.kind : 'dvb';
+  // nome e tipo são opcionais: sem nome usa "endereço:porta"; sem tipo, detecta DVB ou ISDB-T na medição
+  const name = String(b.name || '').trim().slice(0, 120) || null;
+  const kind = KINDS[b.kind] ? b.kind : null;
   const address = String(b.address || '').trim(), iface = String(b.iface || '').trim(), source_ip = String(b.source_ip || '').trim();
   const port = Number(b.port), seconds = Math.min(60, Math.max(2, Number(b.seconds) || 10));
-  if (!name) throw bad('Dê um nome para o stream.');
   if (address && !isIPv4(address)) throw bad('Endereço IP inválido. Ex.: 239.1.1.1');
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw bad('Porta inválida (1 a 65535).');
   if (iface && !isIPv4(iface)) throw bad('IP da placa de rede inválido.');
   if (source_ip && !isIPv4(source_ip)) throw bad('IP de origem inválido.');
-  const targets = (Array.isArray(b.targets) ? b.targets : KINDS[kind].targets).filter(t => TARGETS[t]);
+  const targets = (Array.isArray(b.targets) ? b.targets : KINDS[kind || 'auto'].targets).filter(t => TARGETS[t]);
   const equipment_id = b.equipment_id === '' || b.equipment_id == null ? null : Number(b.equipment_id);
   if (equipment_id != null && !Number.isInteger(equipment_id)) throw bad('Equipamento inválido.');
   return { name, kind, address: address || null, port, iface: iface || null, source_ip: source_ip || null, seconds, targets: JSON.stringify(targets), equipment_id, notes: String(b.notes || '').trim().slice(0, 300) || null };
@@ -304,6 +305,7 @@ function setup(app, pool, { requireEditor, who }) {
 
   app.post('/api/coleta/fontes', requireEditor, wrap(async (req, res) => {
     const s = parseSource(req.body || {});
+    s.name = s.name || `${s.address || 'unicast'}:${s.port}`; s.kind = s.kind || 'auto';
     const cols = Object.keys(s);
     const [row] = await q(`INSERT INTO stream_sources (${cols.join(',')}) VALUES (${cols.map((_, i) => '$' + (i + 1)).join(',')}) RETURNING *`, cols.map(k => s[k]));
     await audit(pool, 'stream_sources', row.id, 'cadastro', null, `${row.name} · ${row.address || '*'}:${row.port}`, 'Coleta RTP · stream cadastrado');
@@ -313,7 +315,8 @@ function setup(app, pool, { requireEditor, who }) {
   app.put('/api/coleta/fontes/:id', requireEditor, wrap(async (req, res) => {
     const s = parseSource(req.body || {});
     const cols = Object.keys(s);
-    const rows = await q(`UPDATE stream_sources SET ${cols.map((k, i) => `${k}=$${i + 1}`).join(',')} WHERE id=$${cols.length + 1} RETURNING *`, [...cols.map(k => s[k]), req.params.id]);
+    // sem nome ou tipo no formulário, mantém os que já estavam
+    const rows = await q(`UPDATE stream_sources SET ${cols.map((k, i) => k === 'name' || k === 'kind' ? `${k}=COALESCE($${i + 1},${k})` : `${k}=$${i + 1}`).join(',')} WHERE id=$${cols.length + 1} RETURNING *`, [...cols.map(k => s[k]), req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Stream não encontrado.' });
     await audit(pool, 'stream_sources', rows[0].id, 'alteração', null, `${rows[0].name} · ${rows[0].address || '*'}:${rows[0].port}`, 'Coleta RTP · stream alterado');
     res.json(pub(rows[0]));
@@ -336,7 +339,7 @@ function setup(app, pool, { requireEditor, who }) {
       src = pub(row);
       opts = { kind: src.kind, targets: Array.isArray(b.targets) ? b.targets.filter(t => TARGETS[t]) : src.targets, equipment_id: src.equipment_id, name: src.name };
     } else {
-      const s = parseSource({ name: 'Medição avulsa', ...b });
+      const s = parseSource(b); s.kind = s.kind || 'auto';
       src = { ...s, targets: JSON.parse(s.targets) };
       opts = { kind: s.kind, targets: src.targets, equipment_id: s.equipment_id, name: `${s.address || '*'}:${s.port}` };
     }
@@ -345,6 +348,11 @@ function setup(app, pool, { requireEditor, who }) {
     let result;
     try { result = await capture({ address: src.address || '', port: src.port, iface: src.iface || '', source: src.source_ip || '', seconds: b.seconds || src.seconds }); }
     finally { running--; }
+    // tipo automático: decide pelo que chegou (BTS ISDB-T ou DVB) e só usa as abas que fazem sentido
+    if (opts.kind === 'auto') {
+      opts.kind = result.isdb ? 'isdb' : 'dvb';
+      if (!result.isdb) opts.targets = opts.targets.filter(t => !t.startsWith('isdb_'));
+    }
     const [m] = await q('INSERT INTO stream_measurements (source_id, username, opts, result) VALUES ($1,$2,$3,$4) RETURNING id, at',
       [b.source_id || null, who(), JSON.stringify(opts), JSON.stringify(result)]);
     if (b.source_id) await q('UPDATE stream_sources SET last_at=now(), last_summary=$1 WHERE id=$2', [summary(result), b.source_id]);

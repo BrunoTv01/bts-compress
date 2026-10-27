@@ -168,3 +168,8 @@ CREATE TABLE IF NOT EXISTS stream_measurements (
   applied     INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS stream_measurements_source ON stream_measurements(source_id, at DESC);
+
+-- tipo "auto": detecta DVB ou ISDB-T na hora da medição
+ALTER TABLE stream_sources DROP CONSTRAINT IF EXISTS stream_sources_kind_check;
+ALTER TABLE stream_sources ADD CONSTRAINT stream_sources_kind_check CHECK (kind IN ('auto','dvb','isdb','encoder'));
+ALTER TABLE stream_sources ALTER COLUMN kind SET DEFAULT 'auto';
