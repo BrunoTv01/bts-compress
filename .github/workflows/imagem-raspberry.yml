@@ -1,0 +1,54 @@
+# Monta a imagem do cartão do Raspberry Pi (Raspberry Pi OS Lite 64 bits + BTS Compress já instalado)
+# e publica em Releases como bts-compress-raspberry.img.xz.
+# Roda sozinho quando a pasta deploy/raspberry muda, ou pelo botão "Run workflow" na aba Actions.
+name: Imagem Raspberry Pi
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/raspberry/**'
+      - '.github/workflows/imagem-raspberry.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  imagem:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Montar a imagem (ARM emulado)
+        id: build
+        uses: pguyot/arm-runner-action@v2
+        with:
+          base_image: raspios_lite_arm64:latest
+          cpu: cortex-a53
+          image_additional_mb: 2500
+          copy_repository_path: /opt/bts-compress-src
+          shrink: true
+          commands: |
+            bash /opt/bts-compress-src/deploy/raspberry/preparar-imagem.sh
+
+      - name: Compactar
+        run: |
+          sudo mv "${{ steps.build.outputs.image }}" bts-compress-raspberry.img
+          sudo xz -T0 -6 bts-compress-raspberry.img
+          sudo chown "$USER" bts-compress-raspberry.img.xz
+          ls -lh bts-compress-raspberry.img.xz
+          sha256sum bts-compress-raspberry.img.xz > bts-compress-raspberry.img.xz.sha256
+
+      - name: Publicar em Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' package.json)
+          NOTAS="Imagem do cartão de memória para Raspberry Pi 4/5 (64 bits) com o BTS Compress $VER já instalado.
+          Grave com o Raspberry Pi Imager (Use custom) ou balenaEtcher, ligue o Pi no cabo de rede e aguarde uns 5 minutos.
+          Acesso: http://bts-compress.local:3000 (admin / admin). Linux: suporte / admin (pede senha nova). Montada em $(date -u +%Y-%m-%d) a partir do commit ${GITHUB_SHA::7}."
+          gh release view raspberry >/dev/null 2>&1 || gh release create raspberry --title "Raspberry Pi: imagem do cartão" --notes "$NOTAS"
+          gh release edit raspberry --notes "$NOTAS"
+          gh release upload raspberry bts-compress-raspberry.img.xz bts-compress-raspberry.img.xz.sha256 --clobber

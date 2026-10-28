@@ -160,7 +160,9 @@ id "$APP_USER" >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /us
 mkdir -p "$APP_DIR"
 rsync -a --delete --exclude node_modules --exclude .git --exclude .env "$SRC_DIR"/ "$APP_DIR"/
 info "Instalando dependências do sistema (npm)"
-( cd "$APP_DIR" && npm install --omit=dev --no-audit --no-fund --loglevel=error )
+( cd "$APP_DIR" && npm install --omit=dev --no-audit --no-fund --loglevel=error ) \
+  || { [ -d "$APP_DIR/node_modules/express" ] && [ -d "$APP_DIR/node_modules/pg" ] && warn "Sem internet para o npm: usando as dependências que já vieram instaladas"; } \
+  || fail "Não consegui instalar as dependências (npm). O servidor tem acesso à internet?"
 chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
 ok "Arquivos em $APP_DIR"
 

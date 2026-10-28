@@ -1,0 +1,14 @@
+[Unit]
+Description=BTS Compress: preparação no primeiro boot (banco e serviço)
+After=network-online.target postgresql.service
+Wants=network-online.target
+ConditionPathExists=!/etc/bts-compress.env
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/bts-compress-src/deploy/raspberry/primeiro-boot.sh
+TimeoutStartSec=1800
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
