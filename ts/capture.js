@@ -69,7 +69,8 @@ function capture({ address = '', port, iface = '', source = '', seconds = 10, on
           else {
             // placa automática: assina o grupo em todas as placas, para receber por onde o stream vier
             let n = 0;
-            for (const i of interfaces().filter(x => !x.internal)) { try { sock.addMembership(address, i.address); n++; } catch { /* placa sem multicast */ } }
+            // inclui a loopback: um stream gerado na própria máquina pode sair por ela (rota de multicast na lo)
+            for (const i of interfaces()) { try { sock.addMembership(address, i.address); n++; } catch { /* placa sem multicast */ } }
             if (!n) sock.addMembership(address);
           }
         }

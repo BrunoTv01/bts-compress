@@ -30,6 +30,11 @@ if command -v ip >/dev/null; then
   ip -4 -o addr show | awk '{print "  " $2 "  " $4}'
   echo "Rota usada para o grupo $GRUPO:"; ip -4 route get "$GRUPO" 2>/dev/null | head -1 | sed 's/^/  /'
   echo "Rota padrão:"; ip -4 route show default | sed 's/^/  /'
+  if ip -4 route get "$GRUPO" 2>/dev/null | head -1 | grep -q " dev lo "; then
+    warn "A rota do multicast vai para a placa lo (loopback), não para a placa de rede."
+    DEV="$(ip -4 route show default | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')"
+    CONCL+=("A rota de multicast está na lo: o que é enviado desta máquina não sai pela placa de rede. Para corrigir: sudo ip route replace 224.0.0.0/4 dev ${DEV:-enp0s3}  (e veja de onde vem a rota: ip route show table all | grep -E '224|lo')")
+  fi
 fi
 mapfile -t PLACAS < <(node -e 'for (const [n, l] of Object.entries(require("os").networkInterfaces())) for (const a of l) if ((a.family === "IPv4" || a.family === 4) && !a.internal) console.log(n + " " + a.address)')
 command -v ip >/dev/null || for p in "${PLACAS[@]}"; do echo "  $p"; done
