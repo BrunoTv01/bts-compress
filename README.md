@@ -23,7 +23,9 @@ Os totais, sobras e percentuais são recalculados a partir do banco a cada ediç
 Aba **Coleta RTP** (perfis Editor e Admin):
 
 1. **Cadastre o stream**: escolha o protocolo e o que essa coleta pode preencher. O sistema reconhece sozinho se o stream é DVB ou ISDB-T.
-   - **UDP ou RTP** (multicast ou unicast): endereço e porta (ex.: `239.1.1.1` e `5000`) e a placa de rede. O sistema detecta sozinho se vem com cabeçalho RTP ou TS direto no UDP.
+   - **UDP ou RTP**, escolhendo o envio (o sistema detecta sozinho se vem com cabeçalho RTP ou TS direto no UDP):
+     - **Multicast**: grupo e porta (ex.: `239.1.1.1` e `5000`) e a placa de rede ligada à rede do multicast.
+     - **Unicast**: o equipamento envia para o IP deste servidor. Informe a porta, em qual IP do servidor receber (ou todas as placas) e, se quiser, o IP do equipamento para aceitar só os pacotes dele. Com o firewall ligado, libere a porta: `sudo ufw allow 5000/udp`.
    - **SRT**: modo **caller** (o sistema conecta no equipamento, informe o IP e a porta) ou **listener** (o equipamento conecta no sistema nessa porta), latência, senha (passphrase) e stream ID, se houver. No modo listener, libere a porta no firewall: `sudo ufw allow 9000/udp`.
 2. **Clique em Coletar**: o sistema escuta o stream de 5 a 60 segundos.
 3. **Revise**: aparecem os serviços encontrados (com PMT, PCR, componentes, taxa e layer) e a lista de diferenças entre o stream e o banco, aba por aba.

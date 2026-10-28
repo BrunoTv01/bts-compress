@@ -39,12 +39,13 @@ function capture({ address = '', port, iface = '', source = '', seconds = 10, on
     const mc = isMulticast(address);
     const an = new TsAnalyzer();
     const sock = dgram.createSocket({ type: 'udp4', reuseAddr: true });
-    let done = false, timer = null, tick = null, first = null;
+    let done = false, timer = null, tick = null, first = null, ignored = 0, otherIp = null;
     const finish = err => {
       if (done) return; done = true;
       clearTimeout(timer); clearInterval(tick);
       try { sock.close(); } catch { /* já fechado */ }
       if (err) return reject(err);
+      if (!an.datagrams && ignored) return reject(friendly(`Chegaram pacotes na porta ${port}, mas de outro IP (${otherIp}), não do equipamento ${source}. Confira o IP do equipamento no cadastro.`, 'outro_ip'));
       if (!an.datagrams) return reject(friendly(`Nenhum pacote chegou em ${address || 'qualquer endereço'}:${port} em ${seconds} s. ` +
         (mc ? 'Confira o endereço e a porta, se a placa de rede está na rede do multicast (escolha a placa certa) e se o firewall libera UDP.' : 'Confira se o equipamento está enviando para este servidor e se o firewall libera a porta UDP.'), 'sem_pacotes'));
       if (!an.packets) return reject(friendly('Chegaram pacotes, mas não são MPEG-TS (nem por RTP nem por UDP).', 'nao_ts'));
@@ -53,13 +54,17 @@ function capture({ address = '', port, iface = '', source = '', seconds = 10, on
     sock.on('error', e => finish(friendly(e.code === 'EADDRINUSE' ? `A porta ${port} está em uso por outro programa.` :
       e.code === 'EACCES' ? `Sem permissão para usar a porta ${port}. Use uma porta acima de 1024.` :
       e.code === 'EADDRNOTAVAIL' ? 'Esse IP de placa de rede não existe nesta máquina.' : `Erro de rede: ${e.message}`)));
-    sock.on('message', msg => { if (first == null) first = Date.now(); an.push(msg); });
+    sock.on('message', (msg, rinfo) => {
+      // unicast com IP do equipamento: ignora o que vier de outra origem
+      if (!mc && source && rinfo.address !== source) { ignored++; otherIp = rinfo.address; return; }
+      if (first == null) first = Date.now(); an.push(msg);
+    });
     // no Linux, ligar no endereço do grupo filtra outros grupos na mesma porta
     const bindAddr = mc && process.platform !== 'win32' ? address : (!mc && address ? address : undefined);
     sock.bind({ port, address: bindAddr, exclusive: false }, () => {
       try {
         if (mc) {
-          if (source) sock.addSourceSpecificMembership(source, address, iface || undefined);
+          if (source && mc) sock.addSourceSpecificMembership(source, address, iface || undefined);
           else sock.addMembership(address, iface || undefined);
         }
         try { sock.setRecvBufferSize(8 * 1024 * 1024); } catch { /* limite do sistema */ }

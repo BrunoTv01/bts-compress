@@ -2,7 +2,7 @@
 'use strict';
 const path = require('path');
 const { spawn } = require('child_process');
-const { capture, interfaces, isIPv4 } = require('./ts/capture');
+const { capture, interfaces, isIPv4, isMulticast } = require('./ts/capture');
 const { captureSrt, srtTool, srtBridge, isHost } = require('./ts/srt');
 
 /* ---------- teste local: streams simulados gerados dentro do próprio servidor ---------- */
@@ -12,6 +12,8 @@ const TEST_STREAMS = [
   { profile: 'isdb', name: TEST_PREFIX + 'BTS ISDB-T (simulado)', kind: 'isdb', group: '239.255.10.2', port: 5502, targets: ['pids', 'isdb_layers', 'isdb_pids'] },
 ];
 // stream SRT de teste: gerador -> UDP local -> repasse SRT em modo listener -> coleta como caller
+// stream unicast de teste: o gerador manda direto para o IP deste servidor
+const TEST_UNI = { profile: 'dvb', name: TEST_PREFIX + 'Mux DVB unicast (simulado)', kind: 'dvb', port: 5530, targets: ['pids', 'pids_total', 'mux'] };
 const TEST_SRT = { profile: 'isdb', name: TEST_PREFIX + 'BTS ISDB-T por SRT (simulado)', kind: 'isdb', udp: 5510, port: 5520, targets: ['pids', 'isdb_layers', 'isdb_pids'] };
 const test = { procs: [], until: null, mode: null, iface: null, timer: null, srt: false };
 function stopTest() {
@@ -336,19 +338,25 @@ function parseSource(b) {
     else if (pw) { if (pw.length < 10 || pw.length > 79) throw bad('A senha do SRT precisa ter de 10 a 79 caracteres.'); srt.srt_passphrase = pw; }
     else srt.srt_passphrase = undefined; // vazio = mantém a senha que já estava
     srt.srt_streamid = String(b.srt_streamid || '').trim().slice(0, 512) || null;
-  } else if (address && !isIPv4(address)) throw bad('Endereço IP inválido. Ex.: 239.1.1.1');
+  } else {
+    if (address && !isIPv4(address)) throw bad('Endereço IP inválido. Ex.: 239.1.1.1');
+    // envio: multicast (grupo 224.0.0.0 a 239.255.255.255) ou unicast (o equipamento manda para o IP deste servidor)
+    if (b.delivery === 'multicast' && !isMulticast(address)) throw bad('Informe o grupo multicast (de 224.0.0.0 a 239.255.255.255). Ex.: 239.1.1.1');
+    if (b.delivery === 'unicast' && address && isMulticast(address)) throw bad('Esse endereço é de multicast. Para unicast, escolha um IP deste servidor ou deixe "Todas as placas".');
+  }
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw bad('Porta inválida (1 a 65535).');
   if (iface && !isIPv4(iface)) throw bad('IP da placa de rede inválido.');
   if (source_ip && !isIPv4(source_ip)) throw bad('IP de origem inválido.');
   const targets = (Array.isArray(b.targets) ? b.targets : KINDS[kind || 'auto'].targets).filter(t => TARGETS[t]);
   const equipment_id = b.equipment_id === '' || b.equipment_id == null ? null : Number(b.equipment_id);
   if (equipment_id != null && !Number.isInteger(equipment_id)) throw bad('Equipamento inválido.');
-  return { name, kind, protocol, ...srt, address: address || null, port, iface: protocol === 'srt' ? null : iface || null, source_ip: source_ip || null, seconds, targets: JSON.stringify(targets), equipment_id, notes: String(b.notes || '').trim().slice(0, 300) || null };
+  return { name, kind, protocol, ...srt, address: address || null, port, iface: protocol === 'srt' || !isMulticast(address) ? null : iface || null, source_ip: source_ip || null, seconds, targets: JSON.stringify(targets), equipment_id, notes: String(b.notes || '').trim().slice(0, 300) || null };
 }
 const bad = m => Object.assign(new Error(m), { status: 400 });
 // a senha do SRT nunca volta para o navegador
 const pub = s => { if (!s) return s; const { srt_passphrase, ...rest } = s; return { ...rest, has_passphrase: !!srt_passphrase, targets: JSON.parse(s.targets || '[]') }; };
-const autoName = s => s.protocol === 'srt' ? `srt://${s.address || ''}:${s.port}${s.srt_mode === 'listener' ? ' (listener)' : ''}` : `${s.address || 'unicast'}:${s.port}`;
+const autoName = s => s.protocol === 'srt' ? `srt://${s.address || ''}:${s.port}${s.srt_mode === 'listener' ? ' (listener)' : ''}`
+  : isMulticast(s.address) ? `${s.address}:${s.port}` : `unicast :${s.port}${s.source_ip ? ' de ' + s.source_ip : ''}`;
 const summary = r => `${r.system} · ${r.programs.length} serviço${r.programs.length === 1 ? '' : 's'} · ${String(r.totalMbps).replace('.', ',')} Mbps` + (r.ccErrors ? ` · ${r.ccErrors} erros CC` : '');
 
 function setup(app, pool, { requireEditor, who }) {
@@ -390,6 +398,16 @@ function setup(app, pool, { requireEditor, who }) {
     }
     test.mode = mode; test.iface = mode === 'multicast' ? iface : null; test.until = new Date(Date.now() + minutes * 60000).toISOString();
     test.srt = startSrtTest(minutes);
+    // unicast: gerador -> IP deste servidor:5530, coleta só aceita pacotes vindos desse IP
+    {
+      const uip = interfaces().find(i => !i.internal)?.address || '127.0.0.1';
+      const g = spawn(process.execPath, [path.join(__dirname, 'tools', 'stream-teste.js'), TEST_UNI.profile, `${uip}:${TEST_UNI.port}`, '--minutos', String(minutes)], { stdio: 'ignore' });
+      test.procs.push(g);
+      const [row] = await q('SELECT id FROM stream_sources WHERE name=$1', [TEST_UNI.name]);
+      const vals = [TEST_UNI.kind, TEST_UNI.port, uip, JSON.stringify(TEST_UNI.targets)];
+      if (row) await q("UPDATE stream_sources SET kind=$1, protocol='udp', address=NULL, port=$2, source_ip=$3, iface=NULL, seconds=5, targets=$4 WHERE id=$5", [...vals, row.id]);
+      else await q("INSERT INTO stream_sources (name,kind,protocol,address,port,source_ip,seconds,targets,notes) VALUES ($5,$1,'udp',NULL,$2,$3,5,$4,'Stream unicast simulado pelo teste local. Os valores não podem ser gravados.')", [...vals, TEST_UNI.name]);
+    }
     if (test.srt) {
       const [row] = await q('SELECT id FROM stream_sources WHERE name=$1', [TEST_SRT.name]);
       const vals = [TEST_SRT.kind, '127.0.0.1', TEST_SRT.port, JSON.stringify(TEST_SRT.targets)];
