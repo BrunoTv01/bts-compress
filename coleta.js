@@ -3,6 +3,7 @@
 const path = require('path');
 const { spawn } = require('child_process');
 const { capture, interfaces, isIPv4 } = require('./ts/capture');
+const { captureSrt, srtTool, srtBridge, isHost } = require('./ts/srt');
 
 /* ---------- teste local: streams simulados gerados dentro do próprio servidor ---------- */
 const TEST_PREFIX = 'TESTE · ';
@@ -10,10 +11,29 @@ const TEST_STREAMS = [
   { profile: 'dvb', name: TEST_PREFIX + 'Mux DVB (simulado)', kind: 'dvb', group: '239.255.10.1', port: 5500, targets: ['pids', 'pids_total', 'mux'] },
   { profile: 'isdb', name: TEST_PREFIX + 'BTS ISDB-T (simulado)', kind: 'isdb', group: '239.255.10.2', port: 5502, targets: ['pids', 'isdb_layers', 'isdb_pids'] },
 ];
-const test = { procs: [], until: null, mode: null, iface: null, timer: null };
+// stream SRT de teste: gerador -> UDP local -> repasse SRT em modo listener -> coleta como caller
+const TEST_SRT = { profile: 'isdb', name: TEST_PREFIX + 'BTS ISDB-T por SRT (simulado)', kind: 'isdb', udp: 5510, port: 5520, targets: ['pids', 'isdb_layers', 'isdb_pids'] };
+const test = { procs: [], until: null, mode: null, iface: null, timer: null, srt: false };
 function stopTest() {
+  test.stopping = true;
   for (const p of test.procs) { try { p.kill(); } catch { /* já parou */ } }
-  test.procs = []; test.until = null; test.mode = null; clearTimeout(test.timer);
+  test.procs = []; test.until = null; test.mode = null; test.srt = false; clearTimeout(test.timer);
+  test.stopping = false;
+}
+function startSrtTest(minutes) {
+  if (!srtTool()) return false;
+  const script = path.join(__dirname, 'tools', 'stream-teste.js');
+  const g = spawn(process.execPath, [script, TEST_SRT.profile, `127.0.0.1:${TEST_SRT.udp}`, '--udp', '--minutos', String(minutes)], { stdio: 'ignore' });
+  test.procs.push(g);
+  // o repasse em listener encerra quando a coleta desconecta: liga de novo enquanto o teste estiver ativo
+  const bridge = () => {
+    const b = srtBridge(TEST_SRT.udp, TEST_SRT.port);
+    if (!b) return;
+    test.procs.push(b);
+    b.on('exit', () => { test.procs = test.procs.filter(x => x !== b); if (!test.stopping && test.until && test.procs.includes(g)) setTimeout(bridge, 300); });
+  };
+  bridge();
+  return true;
 }
 process.on('exit', stopTest);
 function startGenerators(mode, iface, minutes) {
@@ -22,11 +42,11 @@ function startGenerators(mode, iface, minutes) {
     const dest = mode === 'multicast' ? `${t.group}:${t.port}` : `127.0.0.1:${t.port}`;
     const args = [script, t.profile, dest, '--ttl', '0', '--minutos', String(minutes), ...(mode === 'multicast' && iface ? ['--placa', iface] : [])];
     const p = spawn(process.execPath, args, { stdio: 'ignore' });
-    p.on('exit', () => { test.procs = test.procs.filter(x => x !== p); if (!test.procs.length) { test.until = null; test.mode = null; } });
+    p.on('exit', () => { test.procs = test.procs.filter(x => x !== p); if (!test.procs.length) { test.until = null; test.mode = null; test.srt = false; } });
     test.procs.push(p);
   }
 }
-const testStatus = () => ({ running: test.procs.length > 0, until: test.until, mode: test.mode, iface: test.iface });
+const testStatus = () => ({ running: test.procs.length > 0, until: test.until, mode: test.mode, iface: test.iface, srt: test.srt });
 
 const TARGETS = {
   pids:        'Serviços & PIDs · PIDs, ID e codificação',
@@ -301,19 +321,34 @@ function parseSource(b) {
   // nome e tipo são opcionais: sem nome usa "endereço:porta"; sem tipo, detecta DVB ou ISDB-T na medição
   const name = String(b.name || '').trim().slice(0, 120) || null;
   const kind = KINDS[b.kind] ? b.kind : null;
+  const protocol = b.protocol === 'srt' ? 'srt' : 'udp';
   const address = String(b.address || '').trim(), iface = String(b.iface || '').trim(), source_ip = String(b.source_ip || '').trim();
   const port = Number(b.port), seconds = Math.min(60, Math.max(2, Number(b.seconds) || 10));
-  if (address && !isIPv4(address)) throw bad('Endereço IP inválido. Ex.: 239.1.1.1');
+  // SRT: modo, latência, senha e stream ID
+  const srt = { srt_mode: null, srt_latency: null, srt_passphrase: null, srt_streamid: null };
+  if (protocol === 'srt') {
+    srt.srt_mode = b.srt_mode === 'listener' ? 'listener' : 'caller';
+    if (srt.srt_mode === 'caller' && !address) throw bad('No modo caller, informe o IP do equipamento SRT.');
+    if (address && !isHost(address)) throw bad('Endereço inválido.');
+    srt.srt_latency = Math.min(8000, Math.max(20, Math.round(Number(b.srt_latency) || 200)));
+    const pw = String(b.srt_passphrase ?? '');
+    if (b.srt_passphrase_clear) srt.srt_passphrase = null;
+    else if (pw) { if (pw.length < 10 || pw.length > 79) throw bad('A senha do SRT precisa ter de 10 a 79 caracteres.'); srt.srt_passphrase = pw; }
+    else srt.srt_passphrase = undefined; // vazio = mantém a senha que já estava
+    srt.srt_streamid = String(b.srt_streamid || '').trim().slice(0, 512) || null;
+  } else if (address && !isIPv4(address)) throw bad('Endereço IP inválido. Ex.: 239.1.1.1');
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw bad('Porta inválida (1 a 65535).');
   if (iface && !isIPv4(iface)) throw bad('IP da placa de rede inválido.');
   if (source_ip && !isIPv4(source_ip)) throw bad('IP de origem inválido.');
   const targets = (Array.isArray(b.targets) ? b.targets : KINDS[kind || 'auto'].targets).filter(t => TARGETS[t]);
   const equipment_id = b.equipment_id === '' || b.equipment_id == null ? null : Number(b.equipment_id);
   if (equipment_id != null && !Number.isInteger(equipment_id)) throw bad('Equipamento inválido.');
-  return { name, kind, address: address || null, port, iface: iface || null, source_ip: source_ip || null, seconds, targets: JSON.stringify(targets), equipment_id, notes: String(b.notes || '').trim().slice(0, 300) || null };
+  return { name, kind, protocol, ...srt, address: address || null, port, iface: protocol === 'srt' ? null : iface || null, source_ip: source_ip || null, seconds, targets: JSON.stringify(targets), equipment_id, notes: String(b.notes || '').trim().slice(0, 300) || null };
 }
 const bad = m => Object.assign(new Error(m), { status: 400 });
-const pub = s => s && { ...s, targets: JSON.parse(s.targets || '[]') };
+// a senha do SRT nunca volta para o navegador
+const pub = s => { if (!s) return s; const { srt_passphrase, ...rest } = s; return { ...rest, has_passphrase: !!srt_passphrase, targets: JSON.parse(s.targets || '[]') }; };
+const autoName = s => s.protocol === 'srt' ? `srt://${s.address || ''}:${s.port}${s.srt_mode === 'listener' ? ' (listener)' : ''}` : `${s.address || 'unicast'}:${s.port}`;
 const summary = r => `${r.system} · ${r.programs.length} serviço${r.programs.length === 1 ? '' : 's'} · ${String(r.totalMbps).replace('.', ',')} Mbps` + (r.ccErrors ? ` · ${r.ccErrors} erros CC` : '');
 
 function setup(app, pool, { requireEditor, who }) {
@@ -326,7 +361,7 @@ function setup(app, pool, { requireEditor, who }) {
   app.get('/api/coleta', requireEditor, wrap(async (_req, res) => {
     const sources = (await q('SELECT * FROM stream_sources ORDER BY lower(name), id')).map(pub);
     const last = await q(`SELECT DISTINCT ON (source_id) id, source_id, at, username, applied FROM stream_measurements ORDER BY source_id, at DESC`);
-    res.json({ sources, last, interfaces: interfaces(), cloud: !!process.env.RENDER, test: testStatus(), targets: TARGETS, kinds: Object.fromEntries(Object.entries(KINDS).map(([k, v]) => [k, { label: v.label, targets: v.targets }])) });
+    res.json({ sources, last, interfaces: interfaces(), srt: srtTool()?.label || null, cloud: !!process.env.RENDER, test: testStatus(), targets: TARGETS, kinds: Object.fromEntries(Object.entries(KINDS).map(([k, v]) => [k, { label: v.label, targets: v.targets }])) });
   }));
 
   // Teste local: { acao: 'iniciar' | 'parar', minutos }
@@ -354,6 +389,13 @@ function setup(app, pool, { requireEditor, who }) {
       catch (e) { stopTest(); throw Object.assign(new Error('Não consegui receber nem o stream de teste gerado aqui: ' + e.message), { status: 500 }); }
     }
     test.mode = mode; test.iface = mode === 'multicast' ? iface : null; test.until = new Date(Date.now() + minutes * 60000).toISOString();
+    test.srt = startSrtTest(minutes);
+    if (test.srt) {
+      const [row] = await q('SELECT id FROM stream_sources WHERE name=$1', [TEST_SRT.name]);
+      const vals = [TEST_SRT.kind, '127.0.0.1', TEST_SRT.port, JSON.stringify(TEST_SRT.targets)];
+      if (row) await q("UPDATE stream_sources SET kind=$1, protocol='srt', srt_mode='caller', srt_latency=120, address=$2, port=$3, iface=NULL, seconds=5, targets=$4 WHERE id=$5", [...vals, row.id]);
+      else await q("INSERT INTO stream_sources (name,kind,protocol,srt_mode,srt_latency,address,port,seconds,targets,notes) VALUES ($5,$1,'srt','caller',120,$2,$3,5,$4,'Stream SRT simulado pelo teste local. Os valores não podem ser gravados.')", [...vals, TEST_SRT.name]);
+    }
     test.timer = setTimeout(stopTest, minutes * 60000 + 2000);
     for (const t of TEST_STREAMS) {
       const address = mode === 'multicast' ? t.group : '127.0.0.1', ifc = mode === 'multicast' ? iface : null;
@@ -368,7 +410,8 @@ function setup(app, pool, { requireEditor, who }) {
 
   app.post('/api/coleta/fontes', requireEditor, wrap(async (req, res) => {
     const s = parseSource(req.body || {});
-    s.name = s.name || `${s.address || 'unicast'}:${s.port}`; s.kind = s.kind || 'auto';
+    s.name = s.name || autoName(s); s.kind = s.kind || 'auto';
+    if (s.srt_passphrase === undefined) s.srt_passphrase = null;
     const cols = Object.keys(s);
     const [row] = await q(`INSERT INTO stream_sources (${cols.join(',')}) VALUES (${cols.map((_, i) => '$' + (i + 1)).join(',')}) RETURNING *`, cols.map(k => s[k]));
     await audit(pool, 'stream_sources', row.id, 'cadastro', null, `${row.name} · ${row.address || '*'}:${row.port}`, 'Coleta RTP · stream cadastrado');
@@ -377,6 +420,7 @@ function setup(app, pool, { requireEditor, who }) {
 
   app.put('/api/coleta/fontes/:id', requireEditor, wrap(async (req, res) => {
     const s = parseSource(req.body || {});
+    if (s.srt_passphrase === undefined) delete s.srt_passphrase;
     const cols = Object.keys(s);
     // sem nome ou tipo no formulário, mantém os que já estavam
     const rows = await q(`UPDATE stream_sources SET ${cols.map((k, i) => k === 'name' || k === 'kind' ? `${k}=COALESCE($${i + 1},${k})` : `${k}=$${i + 1}`).join(',')} WHERE id=$${cols.length + 1} RETURNING *`, [...cols.map(k => s[k]), req.params.id]);
@@ -399,17 +443,21 @@ function setup(app, pool, { requireEditor, who }) {
     if (b.source_id) {
       const [row] = await q('SELECT * FROM stream_sources WHERE id=$1', [b.source_id]);
       if (!row) return res.status(404).json({ error: 'Stream não encontrado. Atualize a página.' });
-      src = pub(row);
+      src = { ...pub(row), srt_passphrase: row.srt_passphrase };
       opts = { kind: src.kind, targets: Array.isArray(b.targets) ? b.targets.filter(t => TARGETS[t]) : src.targets, equipment_id: src.equipment_id, name: src.name, test: src.name.startsWith(TEST_PREFIX) };
     } else {
-      const s = parseSource(b); s.kind = s.kind || 'auto';
+      const s = parseSource(b); s.kind = s.kind || 'auto'; if (s.srt_passphrase === undefined) s.srt_passphrase = null;
       src = { ...s, targets: JSON.parse(s.targets) };
-      opts = { kind: s.kind, targets: src.targets, equipment_id: s.equipment_id, name: `${s.address || '*'}:${s.port}` };
+      opts = { kind: s.kind, targets: src.targets, equipment_id: s.equipment_id, name: autoName(s) };
     }
     if (running >= 3) return res.status(429).json({ error: 'Já há 3 medições rodando. Espere uma terminar.' });
     running++;
     let result;
-    try { result = await capture({ address: src.address || '', port: src.port, iface: src.iface || '', source: src.source_ip || '', seconds: b.seconds || src.seconds }); }
+    try {
+      result = src.protocol === 'srt'
+        ? await captureSrt({ host: src.address || '', port: src.port, mode: src.srt_mode, latency: src.srt_latency, passphrase: src.srt_passphrase || '', streamid: src.srt_streamid || '', seconds: b.seconds || src.seconds })
+        : await capture({ address: src.address || '', port: src.port, iface: src.iface || '', source: src.source_ip || '', seconds: b.seconds || src.seconds });
+    }
     finally { running--; }
     // tipo automático: decide pelo que chegou (BTS ISDB-T ou DVB) e só usa as abas que fazem sentido
     if (opts.kind === 'auto') {

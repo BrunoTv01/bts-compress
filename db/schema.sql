@@ -173,3 +173,10 @@ CREATE INDEX IF NOT EXISTS stream_measurements_source ON stream_measurements(sou
 ALTER TABLE stream_sources DROP CONSTRAINT IF EXISTS stream_sources_kind_check;
 ALTER TABLE stream_sources ADD CONSTRAINT stream_sources_kind_check CHECK (kind IN ('auto','dvb','isdb','encoder'));
 ALTER TABLE stream_sources ALTER COLUMN kind SET DEFAULT 'auto';
+
+-- Protocolo do stream: UDP/RTP (detecta sozinho) ou SRT
+ALTER TABLE stream_sources ADD COLUMN IF NOT EXISTS protocol TEXT NOT NULL DEFAULT 'udp';
+ALTER TABLE stream_sources ADD COLUMN IF NOT EXISTS srt_mode TEXT;          -- caller | listener
+ALTER TABLE stream_sources ADD COLUMN IF NOT EXISTS srt_latency INTEGER;     -- ms
+ALTER TABLE stream_sources ADD COLUMN IF NOT EXISTS srt_passphrase TEXT;
+ALTER TABLE stream_sources ADD COLUMN IF NOT EXISTS srt_streamid TEXT;

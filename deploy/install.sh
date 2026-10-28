@@ -145,6 +145,16 @@ else
   command -v pg_dump >/dev/null || { [ "$FAM" = deb ] && pkg_install postgresql-client || pkg_install postgresql; }
 fi
 
+# ---------- SRT (opcional: coleta de streams SRT) ----------
+if ! command -v srt-live-transmit >/dev/null; then
+  info "Instalando srt-tools (coleta de streams SRT)"
+  wait_apt
+  if [ "$FAM" = deb ]; then DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTS[@]}" install -y -qq srt-tools </dev/null >/dev/null 2>&1
+  else dnf install -y -q srt </dev/null >/dev/null 2>&1; fi
+  command -v srt-live-transmit >/dev/null && ok "SRT disponível (srt-live-transmit)" \
+    || warn "Não consegui instalar o srt-tools: a coleta funciona em UDP/RTP, mas não em SRT."
+fi
+
 # ---------- usuário e arquivos ----------
 id "$APP_USER" >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /usr/sbin/nologin "$APP_USER"
 mkdir -p "$APP_DIR"

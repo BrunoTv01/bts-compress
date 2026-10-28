@@ -25,6 +25,12 @@ install -m 644 "$APP_DIR/deploy/$APP.service" /etc/systemd/system/$APP.service
 systemctl daemon-reload
 systemctl restart "$APP"
 bash "$APP_DIR/deploy/firewall-multicast.sh" || true
+# coleta SRT: instala o srt-tools se ainda não tiver (versões antigas não instalavam)
+if ! command -v srt-live-transmit >/dev/null && command -v apt-get >/dev/null; then
+  echo "→ Instalando srt-tools (coleta de streams SRT)"
+  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y -qq srt-tools </dev/null >/dev/null 2>&1 \
+    && systemctl restart "$APP" || echo "! Não consegui instalar o srt-tools: a coleta SRT fica indisponível (UDP/RTP continua funcionando)."
+fi
 
 PORT="$(sed -n 's/^PORT=//p' /etc/$APP.env)"
 for _ in $(seq 1 30); do curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1 && break; sleep 1; done

@@ -13,7 +13,7 @@ Sistema web do estudo **BTS Compress (03/08/2026)**: serviços, PIDs e bitrates 
 - **Incluir e excluir linhas**: no modo edição, cada tabela tem uma barra **+ Incluir** e um botão **Excluir** por linha (com confirmação).
 - **Equipamentos**: cadastro de encoders, multiplexadores e outros (nome, fabricante, modelo, função, local, nº de série). O equipamento de cada serviço é escolhido nas abas DVB atual, Taxas e ISDB-T.
 - **Login e usuários**: tela de login obrigatória, perfis **Admin** (gerencia usuários), **Editor** (altera dados) e **Leitura** (só consulta). Aba **Usuários** para o Admin.
-- **Coleta RTP**: recebe o stream do mux DVB, do BTS ISDB-T ou de um encoder (RTP ou UDP, multicast ou unicast), lê PAT, PMT e SDT e mede a taxa de cada PID e a layer ISDB-T. Mostra o que está diferente do banco e grava só o que você marcar (veja abaixo).
+- **Coleta RTP**: recebe o stream do mux DVB, do BTS ISDB-T ou de um encoder (RTP, UDP ou SRT), lê PAT, PMT e SDT e mede a taxa de cada PID e a layer ISDB-T. Mostra o que está diferente do banco e grava só o que você marcar (veja abaixo).
 - **Histórico**: toda alteração, entrada e saída fica registrada com quem fez, valor anterior, novo e horário.
 
 Os totais, sobras e percentuais são recalculados a partir do banco a cada edição.
@@ -22,7 +22,9 @@ Os totais, sobras e percentuais são recalculados a partir do banco a cada ediç
 
 Aba **Coleta RTP** (perfis Editor e Admin):
 
-1. **Cadastre o stream**: nome, tipo (Mux DVB, BTS ISDB-T ou saída de encoder), endereço multicast e porta (ex.: `239.1.1.1` e `5000`), placa de rede e o que essa coleta pode preencher.
+1. **Cadastre o stream**: escolha o protocolo e o que essa coleta pode preencher. O sistema reconhece sozinho se o stream é DVB ou ISDB-T.
+   - **UDP ou RTP** (multicast ou unicast): endereço e porta (ex.: `239.1.1.1` e `5000`) e a placa de rede. O sistema detecta sozinho se vem com cabeçalho RTP ou TS direto no UDP.
+   - **SRT**: modo **caller** (o sistema conecta no equipamento, informe o IP e a porta) ou **listener** (o equipamento conecta no sistema nessa porta), latência, senha (passphrase) e stream ID, se houver. No modo listener, libere a porta no firewall: `sudo ufw allow 9000/udp`.
 2. **Clique em Coletar**: o sistema escuta o stream de 5 a 60 segundos.
 3. **Revise**: aparecem os serviços encontrados (com PMT, PCR, componentes, taxa e layer) e a lista de diferenças entre o stream e o banco, aba por aba.
 4. **Grave**: marque o que quer gravar e clique em **Gravar**. Cada valor vai para o Histórico com o seu nome e a data da medição.
@@ -38,6 +40,8 @@ O que a coleta preenche:
 
 Serviços que estão no stream mas não no cadastro aparecem como **novo** e podem ser cadastrados na hora. O serviço do stream é ligado ao do cadastro pelo PID da PMT, depois pelo ID de serviço e por fim pelo nome.
 
+O SRT usa o `srt-live-transmit` (pacote srt-tools, instalado pelo instalador) ou o `ffmpeg` com SRT, se já existir no servidor. Eles só recebem o SRT e repassam os pacotes do TS sem alterar nada.
+
 O servidor precisa estar na mesma rede do multicast (numa VM, placa em modo **Bridge**). O instalador libera UDP multicast no firewall. No Docker, a coleta só recebe multicast com `network_mode: host`.
 
 **Testar sem equipamento**: na aba Coleta RTP, clique em **Iniciar teste**. O servidor gera um mux DVB e um BTS ISDB-T simulados e cadastra os dois como streams **TESTE**; clique em Coletar neles. As medições de teste não podem ser gravadas. Pelo terminal, o mesmo teste: `sudo bash /opt/bts-compress/deploy/teste-coleta.sh` gera dentro da própria máquina um mux DVB e um BTS ISDB-T simulados (com os serviços e PIDs da planilha, layers A e B), mede pelo terminal e cadastra os dois na aba Coleta RTP. Os streams não saem da máquina (TTL 0) e desligam sozinhos em 15 minutos. São dados de teste: não grave os valores.
@@ -46,6 +50,7 @@ Pelo terminal do servidor:
 
 ```bash
 node /opt/bts-compress/tools/analisar-rtp.js 239.1.1.1:5000 --segundos 10     # mede e mostra o resultado
+node /opt/bts-compress/tools/analisar-rtp.js srt://10.0.0.20:9000 --senha MinhaSenha123   # mede um stream SRT (caller)
 node /opt/bts-compress/tools/enviar-rtp.js arquivo.ts 239.1.1.1:5000 --mbps 32.297 --repetir   # gera um stream de teste a partir de um .ts
 ```
 

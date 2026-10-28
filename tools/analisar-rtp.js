@@ -1,14 +1,20 @@
 #!/usr/bin/env node
-// Mede um stream RTP/UDP pelo terminal, sem abrir o sistema.
+// Mede um stream RTP/UDP ou SRT pelo terminal, sem abrir o sistema.
 //   node tools/analisar-rtp.js 239.1.1.1:5000 [--segundos 10] [--placa IP] [--origem IP] [--json]
+//   node tools/analisar-rtp.js srt://10.0.0.20:9000 [--listener] [--senha X] [--streamid X] [--latencia 200]
 'use strict';
 const { capture, parseAddress } = require('../ts/capture');
 const args = process.argv.slice(2);
 const opt = n => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
-const a = parseAddress(args.find(x => /:\d+$/.test(x)));
-if (!a) { console.log('Uso: node tools/analisar-rtp.js 239.1.1.1:5000 [--segundos 10] [--placa IP] [--origem IP] [--json]'); process.exit(1); }
+const { captureSrt } = require('../ts/srt');
+const srtArg = args.find(x => /^srt:\/\//i.test(x));
+const a = srtArg ? null : parseAddress(args.find(x => /:\d+$/.test(x)));
+if (!a && !srtArg) { console.log('Uso: node tools/analisar-rtp.js 239.1.1.1:5000 [--segundos 10] [--placa IP] [--origem IP] [--json]'); process.exit(1); }
 const f = v => v == null ? '—' : String(v).replace('.', ',');
-capture({ ...a, seconds: opt('--segundos') || 10, iface: opt('--placa') || '', source: opt('--origem') || '' })
+const m = srtArg && srtArg.match(/^srt:\/\/([^:/]*):(\d+)/i);
+(srtArg
+  ? captureSrt({ host: m ? m[1] : '', port: m ? +m[2] : 0, mode: args.includes('--listener') ? 'listener' : 'caller', passphrase: opt('--senha') || '', streamid: opt('--streamid') || '', latency: +(opt('--latencia') || 200), seconds: opt('--segundos') || 10 })
+  : capture({ ...a, seconds: opt('--segundos') || 10, iface: opt('--placa') || '', source: opt('--origem') || '' }))
   .then(r => {
     if (args.includes('--json')) return console.log(JSON.stringify(r, null, 2));
     console.log(`\n${r.transport} · pacotes de ${r.packetSize} bytes · ${r.system} · ${f(r.seconds)} s`);

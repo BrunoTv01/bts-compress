@@ -215,6 +215,7 @@ table.users tr.off td{opacity:.6}
 .rolesel{font:inherit;font-size:14px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
 .chip.c-off{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
 /* coleta RTP */
+.srtline{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.srtline small{color:var(--muted)}
 .testbox{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:var(--surface);border:1px dashed var(--accent);border-radius:8px;padding:12px 14px;margin:8px 0;font-size:14px;color:var(--muted)}
 .testbox>span:not(.chip){flex:1 1 320px}.testbox b{color:var(--fg)}
 .testbox.on{border-style:solid;border-color:var(--warn);background:var(--warn-bg);color:var(--fg)}
@@ -501,7 +502,7 @@ function renderTables(){
 }
 function render(keepSearch){
   const all=views(build());if(!all[view])view="pids";V=all[view];
-  if(V.custom){$("tabs").innerHTML=Object.entries(all).map(([k,v])=>`<button class="tab${k===view?" on":""}" role="tab" aria-selected="${k===view}" data-v="${k}">${v.tab}</button>`).join("");$("app").innerHTML=V.custom();return}
+  if(V.custom){$("tabs").innerHTML=Object.entries(all).map(([k,v])=>`<button class="tab${k===view?" on":""}" role="tab" aria-selected="${k===view}" data-v="${k}">${v.tab}</button>`).join("");$("app").innerHTML=V.custom();if(view==="coleta")coProto();return}
   const q=keepSearch&&$("q")?$("q").value:"";
   $("tabs").innerHTML=Object.entries(all).map(([k,v])=>`<button class="tab${k===view?" on":""}" role="tab" aria-selected="${k===view}" data-v="${k}">${v.tab}</button>`).join("");
   $("app").innerHTML=`<section class="hero"><span class="eyebrow">${V.eyebrow}</span><h1>${V.title}</h1><p class="lede">${V.lede}</p></section>
@@ -731,24 +732,41 @@ function coForm(){
   return `<form class="eqform" id="srcForm" autocomplete="off">
     <h2>${s?`Editar stream: ${esc(s.name)}`:"Cadastrar stream"}</h2>
     <div class="eqgrid">
-      <label>Endereço multicast<input name="address" value="${esc(s?.address||"")}" inputmode="decimal" placeholder="239.1.1.1 (vazio = unicast)"></label>
-      <label>Porta UDP *<input name="port" required inputmode="numeric" value="${esc(s?.port??"")}" placeholder="5000"></label>
-      <label>Placa de rede<select name="iface"><option value="">Automática</option>${CO.interfaces.map(i=>`<option value="${esc(i.address)}" ${s?.iface===i.address?"selected":""}>${esc(i.name)} · ${esc(i.address)}${i.internal?" (local)":""}</option>`).join("")}${s?.iface&&!CO.interfaces.some(i=>i.address===s.iface)?`<option value="${esc(s.iface)}" selected>${esc(s.iface)} (não encontrada)</option>`:""}</select></label>
+      <label>Protocolo<select name="protocol" id="cfProto"><option value="udp">UDP ou RTP (detecta sozinho)</option><option value="srt" ${s?.protocol==="srt"?"selected":""} ${CO.srt?"":"disabled"}>SRT${CO.srt?"":" (instale o srt-tools)"}</option></select></label>
+      <label class="srtonly">Modo SRT<select name="srt_mode" id="cfMode"><option value="caller">Caller (conecta)</option><option value="listener" ${s?.srt_mode==="listener"?"selected":""}>Listener (espera)</option></select></label>
+      <label><span id="cfAddrL">Endereço multicast</span><input name="address" id="cfAddr" value="${esc(s?.address||"")}" inputmode="decimal" placeholder="239.1.1.1 (vazio = unicast)"></label>
+      <label><span id="cfPortL">Porta UDP *</span><input name="port" required inputmode="numeric" value="${esc(s?.port??"")}" placeholder="5000"></label>
+      <label class="srtonly">Latência (ms)<input name="srt_latency" inputmode="numeric" value="${esc(s?.srt_latency??200)}" placeholder="200"></label>
+      <label class="srtonly">Senha (passphrase)<input name="srt_passphrase" type="password" autocomplete="new-password" placeholder="${s?.has_passphrase?"•••••• (vazio = manter)":"opcional, 10 a 79 caracteres"}"></label>
+      <label class="srtonly">Stream ID<input name="srt_streamid" value="${esc(s?.srt_streamid||"")}" placeholder="opcional"></label>
+      ${s?.has_passphrase?'<div class="checks srtonly"><label><input type="checkbox" name="srt_passphrase_clear" value="1">Tirar a senha deste stream</label></div>':""}
+      <label class="udponly">Placa de rede<select name="iface"><option value="">Automática</option>${CO.interfaces.map(i=>`<option value="${esc(i.address)}" ${s?.iface===i.address?"selected":""}>${esc(i.name)} · ${esc(i.address)}${i.internal?" (local)":""}</option>`).join("")}${s?.iface&&!CO.interfaces.some(i=>i.address===s.iface)?`<option value="${esc(s.iface)}" selected>${esc(s.iface)} (não encontrada)</option>`:""}</select></label>
       <label>Tempo de medição<select name="seconds">${[5,10,20,30,60].map(n=>`<option value="${n}" ${(s?.seconds||10)===n?"selected":""}>${n} segundos</option>`).join("")}</select></label>
       <div class="checks" id="cfTargets"><span class="ckh">Abas que esta coleta pode preencher (o sistema reconhece sozinho se o stream é DVB ou ISDB-T)</span>${coTargetsBoxes(tg)}</div>
       <label class="wide">Observação<input name="notes" value="${esc(s?.notes||"")}"></label>
     </div>
-    ${ifs.length>1?'<p class="hint">Esta máquina tem mais de uma placa de rede: escolha a que está ligada à rede do multicast.</p>':""}
+    ${ifs.length>1?'<p class="hint udponly">Esta máquina tem mais de uma placa de rede: escolha a que está ligada à rede do multicast.</p>':""}
+    <p class="hint srtonly" id="cfSrtHint"></p>
     <div class="eqactions"><button class="btn primary" type="submit">${s?"Salvar":"Cadastrar stream"}</button>${s?'<button class="btn" type="button" id="cfCancel">Cancelar</button>':""}<span class="msg" id="cfMsg"></span></div>
   </form>`;
+}
+// mostra só os campos do protocolo escolhido
+function coProto(){
+  const f=$("srcForm");if(!f)return;const srt=$("cfProto").value==="srt",lis=srt&&$("cfMode").value==="listener";
+  f.querySelectorAll(".srtonly").forEach(el=>el.hidden=!srt);f.querySelectorAll(".udponly").forEach(el=>el.hidden=srt);
+  $("cfAddrL").textContent=!srt?"Endereço multicast":lis?"IP local (opcional)":"IP do equipamento";
+  $("cfAddr").placeholder=!srt?"239.1.1.1 (vazio = unicast)":lis?"vazio = todas as placas":"Ex.: 10.0.0.20";
+  $("cfPortL").textContent=srt?"Porta SRT *":"Porta UDP *";
+  $("cfSrtHint").textContent=lis?"Listener: o sistema espera o equipamento conectar. No modo listener, o equipamento precisa estar em caller apontando para este servidor, e o firewall precisa liberar a porta UDP (ex.: sudo ufw allow 9000/udp).":"Caller: o sistema conecta no equipamento, que precisa estar em modo listener nessa porta.";
 }
 function coSources(){
   if(!CO.sources.length)return `<div class="usage"><p class="hint" style="margin:0">Nenhum stream cadastrado. Cadastre abaixo o endereço multicast e a porta do mux DVB, do BTS ISDB-T ou da saída de um encoder.</p></div>`;
   return `<div class="srcs">${CO.sources.map(s=>{const busy=coBusy===s.id,eq=s.equipment_id?D.equipment.find(e=>e.id===s.equipment_id):null;
     return `<article class="src${coRes?.sourceId===s.id?" on":""}">
       <div class="srchead"><b>${esc(s.name)}</b>${s.name.startsWith("TESTE · ")?'<span class="chip c-warn">TESTE</span>':""}${s.kind==="auto"?"":`<span class="chip ${s.kind==="isdb"?"c-acc":s.kind==="encoder"?"c-warn":"c-ok"}">${esc(CO.kinds[s.kind].label)}</span>`}</div>
-      ${s.name===`${s.address||"unicast"}:${s.port}`?"":`<code class="addr">${s.address?esc(s.address):"unicast"}:${s.port}</code>`}
-      <small>${s.iface?`Placa ${esc(s.iface)}`:"Placa automática"} · ${s.seconds} s${eq?` · ${esc(eq.name)}`:""}</small>
+      ${s.protocol==="srt"?`<span class="srtline"><span class="chip c-acc">SRT ${esc(s.srt_mode||"")}</span>${s.has_passphrase?'<span class="chip c-ok">com senha</span>':""}${s.srt_streamid?`<small>stream ID ${esc(s.srt_streamid)}</small>`:""}</span>`:""}
+      ${s.name===`${s.address||"unicast"}:${s.port}`||s.name.startsWith("srt://")?"":`<code class="addr">${s.protocol==="srt"?"srt://":""}${s.address?esc(s.address):s.protocol==="srt"?"":"unicast"}:${s.port}</code>`}
+      <small>${s.protocol==="srt"?`Latência ${s.srt_latency??200} ms`:s.iface?`Placa ${esc(s.iface)}`:"Placa automática"} · ${s.seconds} s${eq?` · ${esc(eq.name)}`:""}</small>
       <small>${s.last_at?`Última: ${new Date(s.last_at).toLocaleString("pt-BR")} · ${esc(s.last_summary||"")}`:"Ainda não coletado"}</small>
       <div class="srcacts">
         <button type="button" class="btn primary sm" data-cocol="${s.id}" ${coBusy?"disabled":""}>${busy?'<span id="coCount">Medindo…</span>':"Coletar"}</button>
@@ -794,8 +812,8 @@ function coResult(){
 }
 function coTestBox(){
   const t=CO.test||{};
-  if(t.running)return `<div class="testbox on"><span class="chip c-warn">Teste local ligado</span><span>Streams simulados até <b>${new Date(t.until).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</b> · ${t.mode==="multicast"?`multicast pela placa ${esc(t.iface)}`:"unicast dentro do servidor"}. Clique em <b>Coletar</b> nos streams <b>TESTE</b> abaixo.</span><button type="button" class="btn sm" id="coTestStop">Parar teste</button></div>`;
-  return `<div class="testbox"><span><b>Teste local</b> · gera dentro do servidor um mux DVB e um BTS ISDB-T simulados, com os serviços e PIDs da planilha, para testar a coleta sem equipamento. Nada sai para a rede e nada é gravado.</span><button type="button" class="btn primary sm" id="coTestStart">Iniciar teste</button></div>`;
+  if(t.running)return `<div class="testbox on"><span class="chip c-warn">Teste local ligado</span><span>Streams simulados até <b>${new Date(t.until).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</b> · ${t.mode==="multicast"?`multicast pela placa ${esc(t.iface)}`:"unicast dentro do servidor"}${t.srt?" e SRT":""}. Clique em <b>Coletar</b> nos streams <b>TESTE</b> abaixo.</span><button type="button" class="btn sm" id="coTestStop">Parar teste</button></div>`;
+  return `<div class="testbox"><span><b>Teste local</b> · gera dentro do servidor um mux DVB e um BTS ISDB-T simulados (também por SRT, se o servidor tiver SRT), com os serviços e PIDs da planilha, para testar a coleta sem equipamento. Nada sai para a rede e nada é gravado.</span><button type="button" class="btn primary sm" id="coTestStart">Iniciar teste</button></div>`;
 }
 function coletaPage(){
   if(!CO)return `<p class="state">Carregando…</p>`;
@@ -836,6 +854,7 @@ $("app").addEventListener("click",async e=>{
 });
 $("app").addEventListener("change",e=>{
   if(view!=="coleta")return;
+  if(e.target.id==="cfProto"||e.target.id==="cfMode"){coProto();return}
   const cb=e.target.closest("[data-coid]");if(cb){cb.checked?coSel.add(cb.dataset.coid):coSel.delete(cb.dataset.coid);const n=coRes.proposals.filter(p=>coSel.has(p.id)&&!p.blocked).length;
     $("coN").textContent=n;const b=$("coApply");b.disabled=!n;b.textContent=`Gravar ${n} marcada${n===1?"":"s"}`;return}
 });

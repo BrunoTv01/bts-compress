@@ -114,6 +114,38 @@ class TsAnalyzer {
     this.t0 = null; this.t1 = null;
   }
 
+  // Bytes de um fluxo contínuo (SRT, arquivo): os pacotes podem vir cortados em qualquer ponto.
+  // Acha o sincronismo (0x47 a cada 188 ou 204 bytes) e entrega só pacotes inteiros.
+  pushStream(chunk, now = Date.now()) {
+    this.datagrams++; this.bytes += chunk.length;
+    if (this.t0 == null) this.t0 = now;
+    this.t1 = now;
+    let b = this.rest && this.rest.length ? Buffer.concat([this.rest, chunk]) : chunk;
+    let i = 0;
+    const synced = (k, size) => { for (let n = 0; n < 4; n++) { if (k + n * size >= b.length) return n > 0; if (b[k + n * size] !== 0x47) return false; } return true; };
+    if (!this.packetSize) {
+      if (b.length < 204 * 5) { this.rest = Buffer.from(b); return; }
+      for (; i < 204 && !this.packetSize; i++) {
+        if (b[i] !== 0x47) continue;
+        if (synced(i, 204) && b[i + 204] === 0x47 && b[i + 408] === 0x47) this.packetSize = 204;
+        else if (synced(i, TS) && b[i + 188] === 0x47 && b[i + 376] === 0x47) this.packetSize = TS;
+        if (this.packetSize) break;
+      }
+      if (!this.packetSize) { this.notTs++; this.rest = Buffer.from(b.subarray(b.length - 204)); return; }
+    }
+    const size = this.packetSize;
+    while (i + size <= b.length) {
+      if (b[i] !== 0x47) { // perdeu o sincronismo: procura o próximo 0x47 que se repete
+        this.notTs++; let j = i + 1;
+        while (j + size < b.length && !(b[j] === 0x47 && b[j + size] === 0x47)) j++;
+        i = j; continue;
+      }
+      this.packet(b, i, size === 204 ? i + TS : -1);
+      i += size;
+    }
+    this.rest = Buffer.from(b.subarray(i));
+  }
+
   // Um datagrama UDP (com ou sem RTP)
   push(buf, now = Date.now()) {
     this.datagrams++; this.bytes += buf.length;
