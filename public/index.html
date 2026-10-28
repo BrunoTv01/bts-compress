@@ -839,7 +839,7 @@ $("app").addEventListener("click",async e=>{
   const c=t.closest("[data-cocol]");if(c){const id=+c.dataset.cocol,s=CO.sources.find(x=>x.id===id);coBusy=id;coRender(true);
     const t0=Date.now();coTimer=setInterval(()=>{const el=$("coCount");if(el)el.textContent=`Medindo… ${Math.max(0,s.seconds-Math.floor((Date.now()-t0)/1000))} s`},250);
     try{const j=await api("/api/coleta/medir",{method:"POST",body:JSON.stringify({source_id:id})});coSetResult(j,id);await loadColeta();coBusy=null;coRender(true);$("coResult")?.scrollIntoView({behavior:"smooth",block:"start"})}
-    catch(err){coBusy=null;coRender(true);toast(err.message,true)}finally{clearInterval(coTimer)}return}
+    catch(err){coBusy=null;if(err.code==="teste_desligado")await loadColeta().catch(()=>{});coRender(true);toast(err.message,true)}finally{clearInterval(coTimer)}return}
   const op=t.closest("[data-coopen]");if(op){try{const j=await api(`/api/coleta/medicoes/${op.dataset.coopen}`);coSetResult(j,+op.dataset.src);coRender(true);$("coResult")?.scrollIntoView({behavior:"smooth",block:"start"})}catch(err){toast(err.message,true)}return}
   const ed=t.closest("[data-coedit]");if(ed){coEdit=+ed.dataset.coedit;coRender(true);$("srcForm")?.scrollIntoView({behavior:"smooth",block:"center"});return}
   if(t.id==="cfCancel"){coEdit=null;coRender(true);return}

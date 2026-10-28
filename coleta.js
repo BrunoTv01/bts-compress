@@ -38,6 +38,8 @@ function startSrtTest(minutes) {
   return true;
 }
 process.on('exit', stopTest);
+// sistema desligando (systemd, Render, Docker): para os geradores antes de sair
+for (const sig of ['SIGTERM', 'SIGINT']) process.once(sig, () => { stopTest(); process.exit(0); });
 function startGenerators(mode, iface, minutes) {
   const script = path.join(__dirname, 'tools', 'stream-teste.js');
   for (const t of TEST_STREAMS) {
@@ -367,6 +369,8 @@ function setup(app, pool, { requireEditor, who }) {
   const wrap = fn => (req, res, next) => fn(req, res, next).catch(e => e.status || e.friendly ? res.status(e.status || 422).json({ error: e.message, code: e.code }) : next(e));
 
   app.get('/api/coleta', requireEditor, wrap(async (_req, res) => {
+    // teste desligado (terminou o tempo ou o sistema reiniciou): tira os streams TESTE da lista
+    if (!test.procs.length) await q('DELETE FROM stream_sources WHERE name LIKE $1', [TEST_PREFIX + '%']);
     const sources = (await q('SELECT * FROM stream_sources ORDER BY lower(name), id')).map(pub);
     const last = await q(`SELECT DISTINCT ON (source_id) id, source_id, at, username, applied FROM stream_measurements ORDER BY source_id, at DESC`);
     res.json({ sources, last, interfaces: interfaces(), srt: srtTool()?.label || null, cloud: !!process.env.RENDER, test: testStatus(), targets: TARGETS, kinds: Object.fromEntries(Object.entries(KINDS).map(([k, v]) => [k, { label: v.label, targets: v.targets }])) });
@@ -414,7 +418,7 @@ function setup(app, pool, { requireEditor, who }) {
       if (row) await q("UPDATE stream_sources SET kind=$1, protocol='srt', srt_mode='caller', srt_latency=120, address=$2, port=$3, iface=NULL, seconds=5, targets=$4 WHERE id=$5", [...vals, row.id]);
       else await q("INSERT INTO stream_sources (name,kind,protocol,srt_mode,srt_latency,address,port,seconds,targets,notes) VALUES ($5,$1,'srt','caller',120,$2,$3,5,$4,'Stream SRT simulado pelo teste local. Os valores não podem ser gravados.')", [...vals, TEST_SRT.name]);
     }
-    test.timer = setTimeout(stopTest, minutes * 60000 + 2000);
+    test.timer = setTimeout(() => { stopTest(); q('DELETE FROM stream_sources WHERE name LIKE $1', [TEST_PREFIX + '%']).catch(() => {}); }, minutes * 60000 + 2000);
     for (const t of TEST_STREAMS) {
       const address = mode === 'multicast' ? t.group : '127.0.0.1', ifc = mode === 'multicast' ? iface : null;
       const [row] = await q('SELECT id FROM stream_sources WHERE name=$1', [t.name]);
@@ -467,6 +471,10 @@ function setup(app, pool, { requireEditor, who }) {
       const s = parseSource(b); s.kind = s.kind || 'auto'; if (s.srt_passphrase === undefined) s.srt_passphrase = null;
       src = { ...s, targets: JSON.parse(s.targets) };
       opts = { kind: s.kind, targets: src.targets, equipment_id: s.equipment_id, name: autoName(s) };
+    }
+    if (opts.test && !test.procs.length) {
+      await q('DELETE FROM stream_sources WHERE name LIKE $1', [TEST_PREFIX + '%']);
+      return res.status(409).json({ error: 'O teste local está desligado (terminou o tempo ou o sistema reiniciou). Clique em Iniciar teste e colete de novo.', code: 'teste_desligado' });
     }
     if (running >= 3) return res.status(429).json({ error: 'Já há 3 medições rodando. Espere uma terminar.' });
     running++;
