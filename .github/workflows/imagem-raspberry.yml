@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   imagem:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
@@ -27,9 +27,9 @@ jobs:
         with:
           base_image: raspios_lite_arm64:latest
           cpu: cortex-a53
+          optimize_image: true
           image_additional_mb: 2500
           copy_repository_path: /opt/bts-compress-src
-          shrink: true
           commands: |
             bash /opt/bts-compress-src/deploy/raspberry/preparar-imagem.sh
 
