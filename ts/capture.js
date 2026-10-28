@@ -65,7 +65,13 @@ function capture({ address = '', port, iface = '', source = '', seconds = 10, on
       try {
         if (mc) {
           if (source && mc) sock.addSourceSpecificMembership(source, address, iface || undefined);
-          else sock.addMembership(address, iface || undefined);
+          else if (iface) sock.addMembership(address, iface);
+          else {
+            // placa automática: assina o grupo em todas as placas, para receber por onde o stream vier
+            let n = 0;
+            for (const i of interfaces().filter(x => !x.internal)) { try { sock.addMembership(address, i.address); n++; } catch { /* placa sem multicast */ } }
+            if (!n) sock.addMembership(address);
+          }
         }
         try { sock.setRecvBufferSize(8 * 1024 * 1024); } catch { /* limite do sistema */ }
       } catch (e) {

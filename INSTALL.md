@@ -228,6 +228,12 @@ Os dados ficam no volume `bts-db` e não se perdem ao atualizar ou reiniciar.
 
 ## Coleta RTP não recebe o stream
 
+Primeiro rode o diagnóstico, trocando pelo grupo e porta do stream. Ele verifica placas, rotas, firewall e rp_filter, tenta receber por cada placa e mostra (com tcpdump) se os pacotes chegam e em qual porta:
+
+```bash
+sudo bash /opt/bts-compress/deploy/diagnostico-coleta.sh 225.2.1.25:5002
+```
+
 Use a aba **Coleta RTP** ou, no terminal do servidor:
 
 ```bash
