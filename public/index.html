@@ -390,7 +390,7 @@ function views(B){
   return {
    pids:{tab:"Serviços & PIDs",eyebrow:"DVB · Aba PIDS - Total",title:"Serviços e PIDs do transport stream",
     lede:"Mapa de PIDs decimais por serviço (vídeo, áudios, PCR, PMT, closed caption, dados) e bitrate titular de cada um.",
-    cards:card("Disponível",nf.format(AV),"Mbps","Banda total do mux")+card("Utilizado",nf.format(usedPids),"Mbps",`${pct(usedPids,AV)}% do mux`)+freeCard("Nulo",AV-usedPids,"good")+card("Serviços",new Set(B.pidsRows.map(r=>r.svc)).size,""),
+    cards:card("Disponível",`<span ${editing?`class="edv" ${avRef} style="cursor:pointer;border-bottom:2px dashed var(--warn)"`:""}>${nf.format(AV)}</span>`,"Mbps",editing?"Clique para editar a banda total":"Banda total do mux")+card("Utilizado",nf.format(usedPids),"Mbps",`${pct(usedPids,AV)}% do mux`)+freeCard("Nulo",AV-usedPids,"good")+card("Serviços",new Set(B.pidsRows.map(r=>r.svc)).size,""),
     usage:usageBar("Ocupação do mux DVB (titular)",B.pidsRows.map(r=>({n:r.svc,v:r.br})),AV),
     tables:[{rows:B.pidsRows,foot:true,add:()=>addBar("pids","Incluir serviço nesta tabela",svcPick(D.services.filter(s=>!D.pids.some(p=>p.service_id===s.id)))+mbpsIn("mbps","Bitrate (Mbps)")),groups:[["Identificação",2],["Vídeo e áudio",5],["Sincronismo",2],["Dados e interatividade",5],["Taxa",1]],cols:[["Serviço","svc","svcid"],["Codificação","cod","txt"],["Vídeo","v","pid"],["Áudio 1","a1","pid"],["Áudio 2","a2","pid"],["Áudio 3","a3","pid"],["Áudio 4","a4","pid"],["PCR","pcr","pid"],["PMT","pmt","pid"],["DEM CC","dem","pid"],["AIT","ait","pid"],["CC","cc","pid"],["ECT","ect","pid"],["Data","data","pid"],["Bitrate (Mbps)","br","br",{bar:AV,stickR:1}]]}],
     notes:[["PIDs não usados (“XXXX” na planilha) aparecem como “—”."],...flags.map(f=>[`${f.svc}: ${f.note}`,1]),...dupIds.map(([id,v])=>[`ID de serviço ${id} repetido em: ${v.join(", ")}.`,1])]},
@@ -845,7 +845,7 @@ $("app").addEventListener("click",async e=>{
   if(t.id==="cfCancel"){coEdit=null;coRender(true);return}
   const dl=t.closest("[data-codel]");if(dl){if(dl.dataset.armed!=="1"){dl.dataset.armed="1";dl.textContent="Confirmar exclusão";setTimeout(()=>{if(dl.isConnected){dl.dataset.armed="";dl.textContent="Excluir"}},4000);return}
     try{await api(`/api/coleta/fontes/${dl.dataset.codel}`,{method:"DELETE"});if(coRes?.sourceId===+dl.dataset.codel)coRes=null;await loadColeta();coRender(true);toast("Stream excluído")}catch(err){toast(err.message,true)}return}
-  const all=t.closest("[data-coall]");if(all){coSel=new Set(all.dataset.coall==="1"?coRes.proposals.filter(p=>!p.blocked&&(coShowMissing||p.default||!/não apareceu/i.test(p.note||""))).map(p=>p.id):[]);coRender(true);return}
+  const all=t.closest("[data-coall]");if(all){coSel=new Set(all.dataset.coall==="1"?coRes.proposals.filter(p=>!p.blocked&&p.table!=="settings"&&(coShowMissing||p.default||!/não apareceu/i.test(p.note||""))).map(p=>p.id):[]);coRender(true);return}
   if(t.id==="coMiss"){coShowMissing=!coShowMissing;coRender(true);return}
   if(t.id==="coApply"){const ids=[...coSel];t.disabled=true;t.textContent="Gravando…";
     try{const r=await api("/api/coleta/aplicar",{method:"POST",body:JSON.stringify({measurement_id:coRes.measurement.id,ids})});
