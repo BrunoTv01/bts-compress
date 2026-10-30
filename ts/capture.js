@@ -1,6 +1,7 @@
 // Recebe um stream RTP/UDP (multicast ou unicast) por alguns segundos e devolve a análise do TS.
 'use strict';
 const dgram = require('dgram');
+const crypto = require('crypto');
 const os = require('os');
 const { TsAnalyzer } = require('./analyzer');
 
@@ -40,6 +41,16 @@ function capture({ address = '', port, iface = '', source = '', seconds = 10, on
     const an = new TsAnalyzer();
     const sock = dgram.createSocket({ type: 'udp4', reuseAddr: true });
     let done = false, timer = null, tick = null, first = null, ignored = 0, otherIp = null;
+    // placa automática com várias placas (cabo + Wi-Fi na mesma rede): o mesmo pacote pode chegar duas vezes
+    let multi = false, dups = 0;
+    const seen = new Set(), order = [];
+    const isDup = msg => {
+      const h = crypto.createHash('sha1').update(msg).digest('base64');
+      if (seen.has(h)) return true;
+      seen.add(h); order.push(h);
+      if (order.length > 4000) seen.delete(order.shift());
+      return false;
+    };
     const finish = err => {
       if (done) return; done = true;
       clearTimeout(timer); clearInterval(tick);
@@ -49,7 +60,9 @@ function capture({ address = '', port, iface = '', source = '', seconds = 10, on
       if (!an.datagrams) return reject(friendly(`Nenhum pacote chegou em ${address || 'qualquer endereço'}:${port} em ${seconds} s. ` +
         (mc ? 'Confira o endereço e a porta, se a placa de rede está na rede do multicast (escolha a placa certa) e se o firewall libera UDP.' : 'Confira se o equipamento está enviando para este servidor e se o firewall libera a porta UDP.'), 'sem_pacotes'));
       if (!an.packets) return reject(friendly('Chegaram pacotes, mas não são MPEG-TS (nem por RTP nem por UDP).', 'nao_ts'));
-      resolve(an.result());
+      const r = an.result();
+      if (dups) r.duplicates = dups; // cópias descartadas (chegaram por mais de uma placa)
+      resolve(r);
     };
     sock.on('error', e => finish(friendly(e.code === 'EADDRINUSE' ? `A porta ${port} está em uso por outro programa.` :
       e.code === 'EACCES' ? `Sem permissão para usar a porta ${port}. Use uma porta acima de 1024.` :
@@ -57,6 +70,7 @@ function capture({ address = '', port, iface = '', source = '', seconds = 10, on
     sock.on('message', (msg, rinfo) => {
       // unicast com IP do equipamento: ignora o que vier de outra origem
       if (!mc && source && rinfo.address !== source) { ignored++; otherIp = rinfo.address; return; }
+      if (multi && isDup(msg)) { dups++; return; }
       if (first == null) first = Date.now(); an.push(msg);
     });
     // no Linux, ligar no endereço do grupo filtra outros grupos na mesma porta
@@ -72,6 +86,7 @@ function capture({ address = '', port, iface = '', source = '', seconds = 10, on
             // inclui a loopback: um stream gerado na própria máquina pode sair por ela (rota de multicast na lo)
             for (const i of interfaces()) { try { sock.addMembership(address, i.address); n++; } catch { /* placa sem multicast */ } }
             if (!n) sock.addMembership(address);
+            multi = n > 1;
           }
         }
         try { sock.setRecvBufferSize(8 * 1024 * 1024); } catch { /* limite do sistema */ }
