@@ -369,6 +369,14 @@ function setup(app, pool, { requireEditor, who }) {
   const wrap = fn => (req, res, next) => fn(req, res, next).catch(e => e.status || e.friendly ? res.status(e.status || 422).json({ error: e.message, code: e.code }) : next(e));
 
   app.get('/api/coleta', requireEditor, wrap(async (_req, res) => {
+    // primeira vez: já deixa cadastrado o stream padrão 226.0.0.1:5000 (multicast, placa automática)
+    const [flag] = await q("SELECT 1 FROM settings WHERE key='coleta_stream_padrao'");
+    if (!flag) {
+      await q(`INSERT INTO stream_sources (name,kind,protocol,address,port,seconds,targets,notes)
+        SELECT '226.0.0.1:5000','auto','udp','226.0.0.1',5000,10,$1,'Stream padrão: RTP multicast pela porta de rede'
+        WHERE NOT EXISTS (SELECT 1 FROM stream_sources WHERE address='226.0.0.1' AND port=5000)`, [JSON.stringify(KINDS.auto.targets)]);
+      await q("INSERT INTO settings (key,label,value) VALUES ('coleta_stream_padrao','Stream padrão da coleta já criado',1) ON CONFLICT (key) DO NOTHING");
+    }
     // teste desligado (terminou o tempo ou o sistema reiniciou): tira os streams TESTE da lista
     if (!test.procs.length) await q('DELETE FROM stream_sources WHERE name LIKE $1', [TEST_PREFIX + '%']);
     const sources = (await q('SELECT * FROM stream_sources ORDER BY lower(name), id')).map(pub);

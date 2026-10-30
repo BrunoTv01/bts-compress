@@ -25,6 +25,7 @@ install -m 644 "$APP_DIR/deploy/$APP.service" /etc/systemd/system/$APP.service
 systemctl daemon-reload
 systemctl restart "$APP"
 bash "$APP_DIR/deploy/firewall-multicast.sh" || true
+bash "$APP_DIR/deploy/rede-automatica.sh" || true
 # coleta SRT: instala o srt-tools se ainda não tiver (versões antigas não instalavam)
 if ! command -v srt-live-transmit >/dev/null && command -v apt-get >/dev/null; then
   echo "→ Instalando srt-tools (coleta de streams SRT)"

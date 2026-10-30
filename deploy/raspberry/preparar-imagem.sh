@@ -21,6 +21,9 @@ rsync -a --delete --exclude .git --exclude .github --exclude node_modules "$SRC"
 id bts >/dev/null 2>&1 || useradd --system --home "$APP" --shell /usr/sbin/nologin bts
 chown -R bts:bts "$APP"
 
+# rede: IGMP v2, cabo com IP automático de reserva (só ligar o cabo e coletar)
+bash "$SRC/deploy/rede-automatica.sh"
+
 # primeiro boot: cria banco, configuração e serviço (deploy/install.sh)
 install -m 644 "$SRC/deploy/raspberry/bts-primeiro-boot.service" /etc/systemd/system/bts-primeiro-boot.service
 systemctl enable bts-primeiro-boot.service

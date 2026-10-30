@@ -234,6 +234,7 @@ if command -v firewall-cmd >/dev/null && firewall-cmd --state >/dev/null 2>&1; t
 fi
 
 bash "$APP_DIR/deploy/firewall-multicast.sh" || true
+bash "$APP_DIR/deploy/rede-automatica.sh" && ok "Rede pronta para multicast (IGMP v2, cabo com IP automático de reserva)"
 
 # ---------- verificação ----------
 LOCAL_PORT="$(sed -n 's/^PORT=//p' "$ENV_FILE")"
