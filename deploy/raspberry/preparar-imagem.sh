@@ -7,7 +7,7 @@ SRC=/opt/bts-compress-src
 APP=/opt/bts-compress
 
 apt-get update
-apt-get install -y --no-install-recommends curl ca-certificates openssl rsync postgresql srt-tools ufw
+apt-get install -y --no-install-recommends curl ca-certificates openssl rsync postgresql srt-tools ufw tcpdump
 # Node.js 22 (NodeSource)
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs

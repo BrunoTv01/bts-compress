@@ -64,6 +64,27 @@ for linha in "auto -" "${PLACAS[@]}"; do
   else bad "Placa $rotulo: nada"; fi
 done
 
+# IGMP: muitos switches e equipamentos de vídeo só atendem IGMP versão 2; o Linux usa a 3
+IGMP_ATUAL="$(cat /proc/sys/net/ipv4/conf/all/force_igmp_version 2>/dev/null || echo 0)"
+titulo "IGMP (pedido do multicast ao switch)"
+echo "  versão forçada: $IGMP_ATUAL (0 = automática, usa a 3)"
+if [ -z "$ACHOU" ] && [ "$IGMP_ATUAL" != 2 ]; then
+  info "Testando com IGMP versão 2 (6 s)"
+  for f in /proc/sys/net/ipv4/conf/*/force_igmp_version; do echo 2 > "$f" 2>/dev/null; done
+  sleep 1
+  r="$(node tools/analisar-rtp.js "$GRUPO:$PORTA" --segundos 6 2>&1 | head -4 | tr '\n' ' ')"
+  if [[ "$r" == *"Taxa total"* ]]; then
+    ok "Com IGMP versão 2 o stream CHEGOU · ${r:0:120}"
+    echo "net.ipv4.conf.all.force_igmp_version = 2" >  /etc/sysctl.d/90-bts-igmp2.conf
+    echo "net.ipv4.conf.default.force_igmp_version = 2" >> /etc/sysctl.d/90-bts-igmp2.conf
+    ACHOU="automática (IGMP v2)"
+    CONCL+=("A rede só atende IGMP versão 2. Deixei essa configuração fixa (/etc/sysctl.d/90-bts-igmp2.conf), vale também depois de reiniciar. Pode coletar pela tela.")
+  else
+    bad "Com IGMP versão 2 também não chegou: voltando para a configuração anterior"
+    for f in /proc/sys/net/ipv4/conf/*/force_igmp_version; do echo "$IGMP_ATUAL" > "$f" 2>/dev/null; done
+  fi
+fi
+
 # tcpdump: os pacotes chegam na máquina? Em qual porta? Que outros grupos multicast passam aqui?
 if ! command -v tcpdump >/dev/null && command -v apt-get >/dev/null; then
   info "Instalando tcpdump para olhar os pacotes"; DEBIAN_FRONTEND=noninteractive apt-get install -y -qq tcpdump </dev/null >/dev/null 2>&1
@@ -83,6 +104,15 @@ if command -v tcpdump >/dev/null; then
   else
     bad "Nenhum pacote para $GRUPO chegou na máquina"
   fi
+  titulo "Pedidos IGMP na rede (10 s)"
+  node tools/analisar-rtp.js "$GRUPO:$PORTA" --segundos 10 >/dev/null 2>&1 &
+  IG="$(timeout 10 tcpdump -ni any -c 30 igmp 2>/dev/null)"
+  wait 2>/dev/null
+  if [ -n "$IG" ]; then echo "$IG" | head -8 | sed 's/^/  /'
+    echo "$IG" | grep -qi "query" && ok "Há um querier IGMP na rede (switch/roteador perguntando quem quer multicast)" \
+      || warn "Nenhuma consulta IGMP (query) na rede: se o switch faz IGMP snooping sem querier, ele pode parar de entregar o multicast."
+  else warn "Nenhum pacote IGMP visto"; fi
+
   titulo "Outros grupos multicast passando por aqui (6 s)"
   OUT="$(timeout 6 tcpdump -ni any -c 2000 "udp and dst net 224.0.0.0/4" 2>/dev/null | grep -oE '> (2(2[4-9]|3[0-9])\.[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' | sed 's/> //' | sort | uniq -c | sort -rn | head -15)"
   if [ -n "$OUT" ]; then echo "$OUT" | awk '{n=split($2,a,"."); printf "  %s:%s  (%s pacotes)\n", a[1]"."a[2]"."a[3]"."a[4], a[5], $1}'
