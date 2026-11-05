@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documentação do BTS Compress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Documento técnico: coluna de leitura com índice fixo à esquerda; identidade visual do próprio sistema */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --line:#d9dee4; --fg:#16202b; --muted:#5b6876;
+  --accent:#0b7a75; --accent-soft:#dff1ef; --signal:#c2410c; --code:#eef2f4;
+  --ok:#15803d; --ok-bg:#dcfce7; --warn:#b45309; --warn-bg:#fef3c7;
+  --display:"Chakra Petch",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1419; --surface:#141d24; --line:#26333d; --fg:#e4eaef; --muted:#8c9aa6;
+  --accent:#3fc1b8; --accent-soft:#16312f; --signal:#fb923c; --code:#18232b;
+  --ok:#4ade80; --ok-bg:#12301d; --warn:#fbbf24; --warn-bg:#33270c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1419; --surface:#141d24; --line:#26333d; --fg:#e4eaef; --muted:#8c9aa6;
+  --accent:#3fc1b8; --accent-soft:#16312f; --signal:#fb923c; --code:#18232b;
+  --ok:#4ade80; --ok-bg:#12301d; --warn:#fbbf24; --warn-bg:#33270c; color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.6}
+a{color:var(--accent);text-underline-offset:2px}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+.shell{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;max-width:1240px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left,0px))}
+nav.toc{position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto;padding:32px 0;font-size:14px}
+nav.toc b{display:block;font-family:var(--display);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:2px;counter-reset:t}
+nav.toc li{counter-increment:t}
+nav.toc a{display:block;padding:4px 8px;border-radius:5px;color:var(--fg);text-decoration:none}
+nav.toc a::before{content:counter(t,decimal-leading-zero);font-family:var(--mono);font-size:11px;color:var(--muted);margin-right:8px}
+nav.toc a:hover{background:var(--accent-soft);color:var(--accent)}
+main{padding:32px 0 80px;min-width:0}
+header.cover{border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:8px;display:grid;gap:10px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--signal)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,46px);line-height:1.1;margin:0;text-wrap:balance}
+.lede{font-size:18px;color:var(--muted);max-width:68ch;margin:0}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:10px}
+.fact{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.fact span{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.fact strong{font-family:var(--display);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+section{padding-top:34px;scroll-margin-top:8px}
+h2{font-family:var(--display);font-weight:600;font-size:28px;line-height:1.2;margin:0 0 12px;text-wrap:balance;display:flex;gap:12px;align-items:baseline}
+h2 .n{font-family:var(--mono);font-size:14px;color:var(--signal);font-weight:500}
+h3{font-family:var(--display);font-weight:600;font-size:19px;margin:26px 0 8px}
+p,ul,ol{max-width:72ch}
+p{margin:0 0 12px}
+ul,ol{padding-left:22px;margin:0 0 14px}
+li{margin:3px 0}
+code{font-family:var(--mono);font-size:.88em;background:var(--code);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{font-family:var(--mono);font-size:13.5px;line-height:1.55;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;margin:0 0 16px;max-width:100%}
+pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
+.tbl{overflow-x:auto;margin:0 0 18px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--bg);padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td code{white-space:nowrap}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.c-ok{background:var(--ok-bg);color:var(--ok)}.c-warn{background:var(--warn-bg);color:var(--warn)}.c-acc{background:var(--accent-soft);color:var(--accent)}
+.note{border-left:3px solid var(--warn);background:var(--warn-bg);padding:10px 14px;border-radius:0 6px 6px 0;margin:0 0 16px;max-width:72ch}
+.note p:last-child{margin:0}
+figure{margin:8px 0 22px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto}
+figure svg{display:block;width:100%;max-width:960px;height:auto;margin:0 auto;color:var(--fg)}
+figcaption{font-size:14px;color:var(--muted);margin-top:10px;max-width:72ch}
+.timeline{list-style:none;padding:0;margin:0 0 16px;max-width:none;border-left:2px solid var(--line)}
+.timeline li{padding:0 0 12px 18px;position:relative}
+.timeline li::before{content:"";position:absolute;left:-6px;top:8px;width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.timeline time{font-family:var(--mono);font-size:13px;color:var(--signal);display:block}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin:0 0 16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.card h4{margin:0 0 6px;font-family:var(--display);font-size:16px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+footer{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+@media (max-width:900px){.shell{grid-template-columns:1fr;gap:0}nav.toc{position:static;max-height:none;padding:20px 0 0;border-bottom:1px solid var(--line)}nav.toc ol{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="toc" aria-label="Índice">
+  <b>Índice</b>
+  <ol>
+    <li><a href="#visao">Visão geral</a></li>
+    <li><a href="#arquitetura">Arquitetura</a></li>
+    <li><a href="#tecnologias">Softwares e tecnologias</a></li>
+    <li><a href="#funcoes">Funcionalidades</a></li>
+    <li><a href="#codigo">Código-fonte</a></li>
+    <li><a href="#banco">Banco de dados</a></li>
+    <li><a href="#api">API REST</a></li>
+    <li><a href="#seguranca">Login e segurança</a></li>
+    <li><a href="#coleta">Coleta RTP / UDP / SRT</a></li>
+    <li><a href="#instalacao">Instalação e implantação</a></li>
+    <li><a href="#ferramentas">Ferramentas de terminal</a></li>
+    <li><a href="#operacao">Operação e manutenção</a></li>
+    <li><a href="#testes">Testes e limitações</a></li>
+    <li><a href="#historico">Histórico do projeto</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="cover">
+  <span class="eyebrow">Documentação técnica · versão 1.7.0 · novembro de 2026</span>
+  <h1>BTS Compress</h1>
+  <p class="lede">Sistema web para o estudo de compressão do BTS da TV Cultura: serviços, PIDs e bitrates do mux DVB (satélite) e do ISDB-T, guardados em PostgreSQL, editados pelo navegador e preenchidos automaticamente pela coleta de streams RTP, UDP e SRT.</p>
+  <div class="facts">
+    <div class="fact"><span>Versão</span><strong>1.7.0</strong></div>
+    <div class="fact"><span>Arquivos de código</span><strong>62</strong></div>
+    <div class="fact"><span>Linhas</span><strong>6.528</strong></div>
+    <div class="fact"><span>Alterações (commits)</span><strong>53</strong></div>
+    <div class="fact"><span>Desenvolvimento</span><strong>22 a 30/10/2026</strong></div>
+  </div>
+</header>
+
+<section id="visao">
+  <h2><span class="n">01</span>Visão geral</h2>
+  <p>O sistema nasceu da planilha <code>estudo_completo_BTS - 03_08_2026.xlsx</code>, que reunia os PIDs, bitrates do mux DVB (titular, reserva e configuração antiga), taxas de encoder e de mux e a distribuição dos serviços ISDB-T por layer. A planilha virou um banco de dados PostgreSQL com uma interface web inspirada na tabela de canais do satbeams.com.</p>
+  <p>Hoje ele faz quatro coisas:</p>
+  <ul>
+    <li><b>Consulta e edição</b> dos dados do estudo, aba por aba, com totais, sobras e percentuais recalculados a cada mudança.</li>
+    <li><b>Cadastros</b> de serviços, equipamentos (encoders, multiplexadores, moduladores) e usuários com perfis de acesso.</li>
+    <li><b>Histórico</b> de toda alteração: quem fez, quando, valor anterior e novo.</li>
+    <li><b>Coleta automática</b>: recebe o transport stream pela rede (RTP, UDP ou SRT), mede PIDs e taxas, compara com o banco e grava só o que o usuário aprovar.</li>
+  </ul>
+  <div class="tbl"><table>
+    <thead><tr><th>Onde roda</th><th>Endereço</th><th>Uso</th></tr></thead>
+    <tbody>
+      <tr><td>Render (nuvem)</td><td><a href="https://bts-compress.onrender.com">bts-compress.onrender.com</a></td><td>Consulta e edição de qualquer lugar. Não recebe multicast da emissora.</td></tr>
+      <tr><td>VM Ubuntu 24.04 (VirtualBox)</td><td><code>http://172.20.15.119:3000</code></td><td>Instalação de testes na rede local, com coleta.</td></tr>
+      <tr><td>Raspberry Pi 4/5</td><td><code>http://bts-compress.local:3000</code></td><td>Aparelho dedicado: cabo no switch do multicast, acesso pelo Wi-Fi.</td></tr>
+      <tr><td>Servidor Linux / Windows / Docker</td><td><code>http://IP-DO-SERVIDOR:3000</code></td><td>Instalação definitiva.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Código-fonte: <a href="https://github.com/BrunoTv01/bts-compress">github.com/BrunoTv01/bts-compress</a> (repositório público).</p>
+</section>
+
+<section id="arquitetura">
+  <h2><span class="n">02</span>Arquitetura</h2>
+  <p>É uma aplicação de três camadas sem framework de front-end: o navegador carrega uma página única, conversa com um servidor Node.js por uma API JSON, e o servidor guarda tudo no PostgreSQL. A coleta roda dentro do mesmo servidor: assina o stream na placa de rede, analisa os pacotes do TS e devolve as diferenças para o navegador revisar.</p>
+  <figure>
+    <svg viewBox="0 0 980 470" role="img" aria-label="Fluxo: equipamentos enviam o stream ao servidor; o servidor analisa, compara com o PostgreSQL e devolve ao navegador as mudanças, que só são gravadas com aprovação">
+      <defs><marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+      <g font-family="IBM Plex Sans, sans-serif" font-size="13" fill="currentColor">
+        <!-- equipamentos -->
+        <rect x="10" y="40" width="190" height="150" rx="8" fill="none" stroke="currentColor" stroke-opacity=".5"/>
+        <text x="105" y="64" text-anchor="middle" font-weight="600">Equipamentos</text>
+        <text x="105" y="92" text-anchor="middle">Mux DVB (satélite)</text>
+        <text x="105" y="114" text-anchor="middle">BTS ISDB-T (204 B)</text>
+        <text x="105" y="136" text-anchor="middle">Encoders</text>
+        <text x="105" y="168" text-anchor="middle" font-size="12" opacity=".7">226.0.0.1:5000 …</text>
+        <!-- navegador -->
+        <rect x="10" y="300" width="190" height="120" rx="8" fill="none" stroke="currentColor" stroke-opacity=".5"/>
+        <text x="105" y="326" text-anchor="middle" font-weight="600">Navegador</text>
+        <text x="105" y="352" text-anchor="middle">public/index.html</text>
+        <text x="105" y="374" text-anchor="middle">abas, edição, revisão</text>
+        <text x="105" y="396" text-anchor="middle" font-size="12" opacity=".7">HTML + CSS + JS puro</text>
+        <!-- servidor -->
+        <rect x="300" y="20" width="400" height="430" rx="10" fill="none" stroke="#0b7a75" stroke-width="2"/>
+        <text x="500" y="46" text-anchor="middle" font-weight="600">Servidor Node.js 22 (systemd · porta 3000)</text>
+        <rect x="325" y="64" width="350" height="62" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"/>
+        <text x="500" y="88" text-anchor="middle" font-weight="600">Captura</text>
+        <text x="500" y="110" text-anchor="middle" font-size="12">ts/capture.js (UDP/RTP) · ts/srt.js (SRT)</text>
+        <rect x="325" y="146" width="350" height="62" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"/>
+        <text x="500" y="170" text-anchor="middle" font-weight="600">Analisador de MPEG-TS</text>
+        <text x="500" y="192" text-anchor="middle" font-size="12">ts/analyzer.js · PAT, PMT, SDT, taxa por PID, layer</text>
+        <rect x="325" y="228" width="350" height="62" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"/>
+        <text x="500" y="252" text-anchor="middle" font-weight="600">Comparação e propostas</text>
+        <text x="500" y="274" text-anchor="middle" font-size="12">coleta.js · liga serviços por PMT, ID e nome</text>
+        <rect x="325" y="310" width="350" height="62" rx="6" fill="none" stroke="currentColor" stroke-opacity=".5"/>
+        <text x="500" y="334" text-anchor="middle" font-weight="600">API e login</text>
+        <text x="500" y="356" text-anchor="middle" font-size="12">server.js (Express) · auth.js (sessões, perfis)</text>
+        <text x="500" y="410" text-anchor="middle" font-size="12" opacity=".75">db/connect.js descobre o banco sozinho</text>
+        <!-- banco -->
+        <rect x="790" y="250" width="180" height="120" rx="8" fill="none" stroke="currentColor" stroke-opacity=".5"/>
+        <text x="880" y="278" text-anchor="middle" font-weight="600">PostgreSQL 16</text>
+        <text x="880" y="302" text-anchor="middle">banco bts</text>
+        <text x="880" y="324" text-anchor="middle">13 tabelas</text>
+        <text x="880" y="346" text-anchor="middle" font-size="12" opacity=".7">backup diário 02:30</text>
+        <!-- setas -->
+        <line x1="200" y1="100" x2="322" y2="95" stroke="currentColor" marker-end="url(#seta)"/>
+        <text x="258" y="86" text-anchor="middle" font-size="12">stream</text>
+        <line x1="500" y1="126" x2="500" y2="143" stroke="currentColor" marker-end="url(#seta)"/>
+        <line x1="500" y1="208" x2="500" y2="225" stroke="currentColor" marker-end="url(#seta)"/>
+        <line x1="500" y1="290" x2="500" y2="307" stroke="currentColor" marker-end="url(#seta)"/>
+        <line x1="200" y1="350" x2="322" y2="345" stroke="currentColor" marker-end="url(#seta)" marker-start="url(#seta)"/>
+        <text x="260" y="336" text-anchor="middle" font-size="12">JSON</text>
+        <line x1="675" y1="259" x2="787" y2="290" stroke="currentColor" marker-end="url(#seta)"/>
+        <text x="735" y="262" text-anchor="middle" font-size="12">lê</text>
+        <line x1="675" y1="341" x2="787" y2="330" stroke="#0b7a75" stroke-width="2" marker-end="url(#seta)"/>
+        <text x="732" y="358" text-anchor="middle" font-size="12" fill="#0b7a75">grava só o</text>
+        <text x="732" y="374" text-anchor="middle" font-size="12" fill="#0b7a75">que foi aprovado</text>
+      </g>
+    </svg>
+    <figcaption>O stream entra pela placa de rede do servidor, é analisado e comparado com o banco. As diferenças vão para o navegador; a gravação acontece só depois que o usuário marca e confirma.</figcaption>
+  </figure>
+  <h3>Decisões de projeto</h3>
+  <ul>
+    <li><b>Duas dependências só</b> (<code>express</code> e <code>pg</code>). Login, criptografia de senha, cookies, CSRF e o analisador de TS foram escritos com os módulos nativos do Node.js. Menos pacotes significa instalação mais rápida e menos manutenção.</li>
+    <li><b>Página única sem build</b>: <code>public/index.html</code> contém HTML, CSS e JavaScript. Não há compilação nem bundler; editar e recarregar basta.</li>
+    <li><b>Banco que se configura sozinho</b>: ao iniciar, o sistema cria as tabelas que faltam e carrega a planilha se o banco estiver vazio. Atualizar nunca apaga dados.</li>
+    <li><b>Nada é gravado sem revisão</b> na coleta: a medição gera uma lista de propostas, e o usuário escolhe o que entra no banco.</li>
+  </ul>
+</section>
+
+<section id="tecnologias">
+  <h2><span class="n">03</span>Softwares e tecnologias</h2>
+  <h3>Do sistema</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Software</th><th>Versão</th><th>Função</th></tr></thead>
+    <tbody>
+      <tr><td>Node.js</td><td>22 LTS (mínimo 20)</td><td>Servidor da aplicação, API, coleta e análise do TS.</td></tr>
+      <tr><td>Express</td><td>4.21</td><td>Rotas HTTP e arquivos estáticos.</td></tr>
+      <tr><td>node-postgres (<code>pg</code>)</td><td>8.13</td><td>Conexão com o PostgreSQL.</td></tr>
+      <tr><td>PostgreSQL</td><td>16 (Ubuntu 24.04), 15 (Raspberry Pi OS)</td><td>Banco de dados de todos os dados, usuários, sessões e histórico.</td></tr>
+      <tr><td>HTML5, CSS e JavaScript</td><td>sem framework</td><td>Interface: abas, tabelas, edição em linha, gráficos de ocupação e a animação de uplink da tela de login (canvas).</td></tr>
+      <tr><td>Google Fonts</td><td>Chakra Petch, IBM Plex Sans e Mono</td><td>Tipografia da interface.</td></tr>
+      <tr><td>srt-live-transmit (srt-tools)</td><td>1.5</td><td>Recebe streams SRT e repassa o TS sem alterar. Alternativa: ffmpeg com libsrt.</td></tr>
+      <tr><td>ffmpeg</td><td>6.x</td><td>Opcional: receptor SRT de reserva e gerador de stream de teste.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>De instalação e infraestrutura</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Software</th><th>Função</th></tr></thead>
+    <tbody>
+      <tr><td>Ubuntu 22.04+ / Debian 12 / Rocky 9 / Raspberry Pi OS 64</td><td>Sistemas operacionais suportados pelo instalador.</td></tr>
+      <tr><td>systemd</td><td>Serviço <code>bts-compress</code>, que liga com o servidor e reinicia sozinho em caso de falha.</td></tr>
+      <tr><td>Bash</td><td>Instaladores, atualização, backup, diagnóstico e configuração de rede (pasta <code>deploy/</code>).</td></tr>
+      <tr><td>NodeSource</td><td>Repositório do Node.js 22 para Debian/Ubuntu.</td></tr>
+      <tr><td>NetworkManager (<code>nmcli</code>)</td><td>Configuração da placa de cabo para multicast e IP automático de reserva.</td></tr>
+      <tr><td>ufw / firewalld</td><td>Liberação da porta 3000 e da entrada de UDP multicast.</td></tr>
+      <tr><td>nginx</td><td>Opcional: publica o sistema na porta 80 com domínio.</td></tr>
+      <tr><td>tcpdump</td><td>Usado pelo diagnóstico da coleta para ver se os pacotes chegam.</td></tr>
+      <tr><td>Docker e Docker Compose</td><td>Alternativa de instalação em containers (app + PostgreSQL).</td></tr>
+      <tr><td>Render</td><td>Hospedagem na nuvem (plano gratuito), com blueprint <code>render.yaml</code>.</td></tr>
+      <tr><td>GitHub</td><td>Código-fonte, downloads e Releases.</td></tr>
+      <tr><td>GitHub Actions + arm-runner</td><td>Monta a imagem do cartão do Raspberry emulando ARM.</td></tr>
+      <tr><td>Oracle VirtualBox</td><td>Máquina virtual de testes; scripts para criar, exportar e importar a VM.</td></tr>
+      <tr><td>cloud-init (autoinstall)</td><td>Instalação sem perguntas do Ubuntu Server dentro da VM.</td></tr>
+      <tr><td>PowerShell + winget</td><td>Instalador do Windows 10/11 (Node.js, PostgreSQL e tarefa agendada).</td></tr>
+      <tr><td>Raspberry Pi Imager / balenaEtcher</td><td>Gravação da imagem no cartão de memória.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="funcoes">
+  <h2><span class="n">04</span>Funcionalidades</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Aba</th><th>O que mostra e permite</th><th>Perfil</th></tr></thead>
+    <tbody>
+      <tr><td>Serviços &amp; PIDs</td><td>Mapa de PIDs decimais de cada serviço (vídeo, 4 áudios, PCR, PMT, DEM CC, AIT, CC, ECT, dados), codificação, bitrate e ocupação do mux DVB (32,297 Mbps). A banda disponível é editável no próprio quadro.</td><td>Todos</td></tr>
+      <tr><td>DVB atual</td><td>Bitrates do sistema titular e do reserva, com o encoder de cada um e a diferença por serviço.</td><td>Todos</td></tr>
+      <tr><td>DVB antigo</td><td>Configuração antiga comparada com a atual.</td><td>Todos</td></tr>
+      <tr><td>Taxas encoder / mux</td><td>Áudio e CC em kbps, vídeo em Mbps, alternando entre o configurado no encoder e o medido no mux, com o equipamento de cada linha.</td><td>Todos</td></tr>
+      <tr><td>ISDB-T</td><td>Serviços por layer (A, B, Tabelas), ocupação da layer B e taxa medida de cada PID.</td><td>Todos</td></tr>
+      <tr><td>Serviços</td><td>Cadastro dos canais e em quais abas cada um aparece. Renomear muda o nome em todas as abas.</td><td>Editor, Admin</td></tr>
+      <tr><td>Equipamentos</td><td>Cadastro de encoders, multiplexadores e outros, com onde cada um está em uso.</td><td>Editor, Admin</td></tr>
+      <tr><td>Histórico</td><td>Últimas 200 alterações, entradas e saídas, com usuário e valores.</td><td>Todos</td></tr>
+      <tr><td>Coleta RTP</td><td>Cadastro de streams, coleta, revisão e gravação; teste local com streams simulados.</td><td>Editor, Admin</td></tr>
+      <tr><td>Usuários</td><td>Criar, desativar, excluir, trocar perfil e redefinir senha.</td><td>Admin</td></tr>
+    </tbody>
+  </table></div>
+  <p>Em todas as tabelas: busca, ordenação por coluna, cabeçalho e primeira coluna fixos, barras de participação na capacidade e, no modo <b>Editar valores</b>, edição em linha, inclusão e exclusão de linhas. O tema claro ou escuro segue o sistema operacional, com botão para trocar.</p>
+</section>
+
+<section id="codigo">
+  <h2><span class="n">05</span>Código-fonte</h2>
+  <p>Todo o código está em <a href="https://github.com/BrunoTv01/bts-compress">github.com/BrunoTv01/bts-compress</a>. Para baixar: <a href="https://github.com/BrunoTv01/bts-compress/archive/refs/heads/main.zip">main.zip</a> ou <a href="https://github.com/BrunoTv01/bts-compress/archive/refs/heads/main.tar.gz">main.tar.gz</a>.</p>
+  <h3>Aplicação</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Arquivo</th><th>Linhas</th><th>Responsabilidade</th></tr></thead>
+    <tbody>
+      <tr><td><a href="https://github.com/BrunoTv01/bts-compress/blob/main/server.js"><code>server.js</code></a></td><td class="num">319</td><td>Inicia o sistema: descobre o banco, cria tabelas, carrega a planilha, sobe o Express. Rotas de dados, edição, inclusão e exclusão de linhas, serviços e equipamentos.</td></tr>
+      <tr><td><a href="https://github.com/BrunoTv01/bts-compress/blob/main/auth.js"><code>auth.js</code></a></td><td class="num">330</td><td>Login, sessões, senhas com scrypt, bloqueio por tentativas, perfis, proteção CSRF, usuários e recuperação de acesso.</td></tr>
+      <tr><td><a href="https://github.com/BrunoTv01/bts-compress/blob/main/coleta.js"><code>coleta.js</code></a></td><td class="num">556</td><td>Aba Coleta RTP no servidor: streams cadastrados, medição, comparação com o banco, propostas, gravação aprovada e teste local.</td></tr>
+      <tr><td><a href="https://github.com/BrunoTv01/bts-compress/blob/main/ts/analyzer.js"><code>ts/analyzer.js</code></a></td><td class="num">369</td><td>Analisador de MPEG-TS: RTP, pacotes de 188/204 bytes, PAT, PMT, SDT, CRC, taxa por PID, erros CC, layer ISDB-T.</td></tr>
+      <tr><td><a href="https://github.com/BrunoTv01/bts-compress/blob/main/ts/capture.js"><code>ts/capture.js</code></a></td><td class="num">113</td><td>Recebe UDP/RTP multicast ou unicast pelo tempo pedido; assina o grupo em todas as placas e descarta cópias.</td></tr>
+      <tr><td><a href="https://github.com/BrunoTv01/bts-compress/blob/main/ts/srt.js"><code>ts/srt.js</code></a></td><td class="num">128</td><td>Recebe SRT (caller ou listener, com senha e stream ID) pelo srt-live-transmit ou ffmpeg.</td></tr>
+      <tr><td><a href="https://github.com/BrunoTv01/bts-compress/blob/main/public/index.html"><code>public/index.html</code></a></td><td class="num">1.066</td><td>Toda a interface: estilos, abas, tabelas, edição, login com fundo animado, usuários e coleta.</td></tr>
+      <tr><td><a href="https://github.com/BrunoTv01/bts-compress/blob/main/db/schema.sql"><code>db/schema.sql</code></a></td><td class="num">182</td><td>Estrutura do banco. Idempotente: roda a cada início sem perder dados.</td></tr>
+      <tr><td><a href="https://github.com/BrunoTv01/bts-compress/blob/main/db/seed.js"><code>db/seed.js</code></a></td><td class="num">117</td><td>Dados iniciais extraídos da planilha de 03/08/2026.</td></tr>
+      <tr><td><a href="https://github.com/BrunoTv01/bts-compress/blob/main/db/connect.js"><code>db/connect.js</code></a></td><td class="num">115</td><td>Descobre o banco: variável <code>DATABASE_URL</code>, arquivo <code>.env</code>, socket local ou cria o banco sozinho.</td></tr>
+      <tr><td><code>public/logo.png</code></td><td class="num">—</td><td>Logo da TV Cultura no cabeçalho e no ícone da aba do navegador.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Ferramentas (<code>tools/</code>)</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Arquivo</th><th>Linhas</th><th>Função</th></tr></thead>
+    <tbody>
+      <tr><td><code>tools/analisar-rtp.js</code></td><td class="num">30</td><td>Mede um stream RTP/UDP ou SRT pelo terminal.</td></tr>
+      <tr><td><code>tools/stream-teste.js</code></td><td class="num">193</td><td>Gera streams simulados (DVB a 32,297 Mbps e BTS ISDB-T a 32,508 Mbps) com os PIDs da planilha.</td></tr>
+      <tr><td><code>tools/enviar-rtp.js</code></td><td class="num">53</td><td>Envia um arquivo .ts pela rede em RTP ou UDP.</td></tr>
+      <tr><td><code>tools/reset-password.js</code></td><td class="num">29</td><td>Redefine a senha de um usuário.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Instalação (<code>deploy/</code> e raiz)</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Arquivo</th><th>Linhas</th><th>Função</th></tr></thead>
+    <tbody>
+      <tr><td><code>instalar.sh</code></td><td class="num">60</td><td>Instalador de um comando: baixa do GitHub e instala ou atualiza.</td></tr>
+      <tr><td><code>deploy/install.sh</code></td><td class="num">269</td><td>Instalação completa: Node.js, PostgreSQL, srt-tools, banco, configuração, serviço, firewall e rede.</td></tr>
+      <tr><td><code>deploy/update.sh</code></td><td class="num">42</td><td>Atualização com backup antes, sem perder dados.</td></tr>
+      <tr><td><code>deploy/backup.sh</code></td><td class="num">36</td><td>Backup, restauração e agendamento diário.</td></tr>
+      <tr><td><code>deploy/uninstall.sh</code></td><td class="num">33</td><td>Remove o sistema.</td></tr>
+      <tr><td><code>deploy/reset-senha.sh</code></td><td class="num">8</td><td>Volta o admin para admin / admin.</td></tr>
+      <tr><td><code>deploy/importar-banco.sh</code></td><td class="num">79</td><td>Copia os dados do Render para o banco local.</td></tr>
+      <tr><td><code>deploy/firewall-multicast.sh</code></td><td class="num">13</td><td>Libera UDP multicast no ufw ou firewalld.</td></tr>
+      <tr><td><code>deploy/rede-automatica.sh</code></td><td class="num">65</td><td>IGMP versão 2, rp_filter frouxo e IP automático de reserva no cabo.</td></tr>
+      <tr><td><code>deploy/rede-coleta.sh</code></td><td class="num">71</td><td>Cabo só para multicast, Wi-Fi para acesso; IP fixo opcional.</td></tr>
+      <tr><td><code>deploy/diagnostico-coleta.sh</code></td><td class="num">137</td><td>Descobre por que um multicast não chega.</td></tr>
+      <tr><td><code>deploy/teste-coleta.sh</code></td><td class="num">88</td><td>Teste da coleta pelo terminal com streams simulados.</td></tr>
+      <tr><td><code>deploy/bts-compress.service</code></td><td class="num">24</td><td>Unidade do systemd, com proteções.</td></tr>
+      <tr><td><code>deploy/nginx.conf</code></td><td class="num">18</td><td>Modelo do nginx.</td></tr>
+      <tr><td><code>deploy/iso/*</code></td><td class="num">313</td><td>ISO de autoinstalação do Ubuntu Server para VM (cloud-init), com gerador de ISO em Python.</td></tr>
+      <tr><td><code>deploy/vm/*</code></td><td class="num">684</td><td>Criar a VM no VirtualBox, preparar cópia (.ova) que pega IP sozinha, exportar e importar.</td></tr>
+      <tr><td><code>deploy/windows/*</code></td><td class="num">287</td><td>Instalador e desinstalador para Windows com dois cliques.</td></tr>
+      <tr><td><code>deploy/clique/*</code></td><td class="num">25</td><td>Ícone de instalação com um clique para Ubuntu com tela gráfica.</td></tr>
+      <tr><td><code>deploy/raspberry/*</code></td><td class="num">70</td><td>Montagem da imagem do cartão e preparação no primeiro boot.</td></tr>
+      <tr><td><code>.github/workflows/imagem-raspberry.yml</code></td><td class="num">54</td><td>Monta e publica a imagem do Raspberry no GitHub Actions.</td></tr>
+      <tr><td><code>Dockerfile</code>, <code>docker-compose.yml</code></td><td class="num">51</td><td>Instalação com Docker.</td></tr>
+      <tr><td><code>render.yaml</code></td><td class="num">25</td><td>Blueprint do Render: serviço web + banco.</td></tr>
+      <tr><td><code>README.md</code>, <code>INSTALL.md</code></td><td class="num">441</td><td>Guias de uso e de instalação.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Como o servidor inicia</h3>
+<pre><code>resolveDatabaseUrl()          // db/connect.js: acha ou cria o banco
+  .then(criar pool PostgreSQL)
+  .then(migrate)              // db/schema.sql; se vazio, carrega db/seed.js
+  .then(bootstrap)            // auth.js: cria o admin na primeira vez
+  .then(app.listen(PORT))     // padrão 3000, todas as placas</code></pre>
+</section>
+
+<section id="banco">
+  <h2><span class="n">06</span>Banco de dados</h2>
+  <p>PostgreSQL, banco <code>bts</code>, usuário <code>bts</code> com senha aleatória gerada na instalação (guardada em <code>/etc/bts-compress.env</code>). São 13 tabelas:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Tabela</th><th>Conteúdo</th><th>Campos principais</th></tr></thead>
+    <tbody>
+      <tr><td><code>services</code></td><td>Cadastro de serviços DVB e ISDB-T</td><td>service_id, name (único), codec, system, sort</td></tr>
+      <tr><td><code>service_pids</code></td><td>PIDs de cada serviço</td><td>v, a1–a4, pcr, pmt, dem, ait, cc, ect, data</td></tr>
+      <tr><td><code>bitrates</code></td><td>Bitrate por configuração</td><td>config (pids_total, titular, reserva, antigo), mbps, label, note, equipment_id</td></tr>
+      <tr><td><code>encoder_rates</code></td><td>Taxas de encoder e de mux</td><td>source (enc, mux), a1–a4 e cc em kbps, v em Mbps, equipment_id</td></tr>
+      <tr><td><code>isdb_layers</code></td><td>Serviços ISDB-T por layer</td><td>layer (A, B, C, Tabelas), name, mbps, equipment_id</td></tr>
+      <tr><td><code>isdb_pids</code></td><td>PIDs ISDB-T e taxa medida</td><td>grp, pid, ident, mbps</td></tr>
+      <tr><td><code>equipment</code></td><td>Equipamentos</td><td>name, manufacturer, model, function, location, serial, notes</td></tr>
+      <tr><td><code>settings</code></td><td>Capacidades</td><td>dvb_available (32,297), isdb_layer_b_total (12,483)…</td></tr>
+      <tr><td><code>users</code></td><td>Usuários</td><td>username, name, role (viewer, editor, admin), password_hash, active, must_change</td></tr>
+      <tr><td><code>sessions</code></td><td>Sessões de login</td><td>token_hash, expires_at, last_seen, ip, user_agent</td></tr>
+      <tr><td><code>audit_log</code></td><td>Histórico</td><td>at, tbl, row_id, field, old_value, new_value, context, username</td></tr>
+      <tr><td><code>stream_sources</code></td><td>Streams da coleta</td><td>protocol (udp, srt), address, port, iface, source_ip, srt_mode, srt_latency, srt_passphrase, targets</td></tr>
+      <tr><td><code>stream_measurements</code></td><td>Medições feitas</td><td>at, username, opts, result (análise completa em JSON), applied</td></tr>
+    </tbody>
+  </table></div>
+  <p>O <code>schema.sql</code> só usa comandos idempotentes (<code>CREATE TABLE IF NOT EXISTS</code>, <code>ADD COLUMN IF NOT EXISTS</code>), por isso cada versão nova acrescenta o que falta sem tocar nos dados.</p>
+</section>
+
+<section id="api">
+  <h2><span class="n">07</span>API REST</h2>
+  <p>Todas as rotas respondem JSON. Fora o login e o <code>/api/health</code>, exigem sessão. Pedidos que alteram dados exigem o cabeçalho <code>X-Requested-With: bts</code> (proteção contra CSRF).</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Método e rota</th><th>Perfil</th><th>Função</th></tr></thead>
+    <tbody>
+      <tr><td><code>GET /api/health</code></td><td>público</td><td>Verifica se o banco responde.</td></tr>
+      <tr><td><code>POST /api/auth/login</code></td><td>público</td><td>Entra com usuário e senha; devolve o cookie de sessão.</td></tr>
+      <tr><td><code>POST /api/auth/logout</code> · <code>GET /api/auth/me</code></td><td>logado</td><td>Sai; mostra o usuário atual.</td></tr>
+      <tr><td><code>POST /api/auth/password</code></td><td>logado</td><td>Troca a própria senha.</td></tr>
+      <tr><td><code>GET /api/data</code></td><td>Leitura</td><td>Todos os dados do estudo numa chamada.</td></tr>
+      <tr><td><code>GET /api/history</code></td><td>Leitura</td><td>Últimas 200 alterações.</td></tr>
+      <tr><td><code>PATCH /api/:tabela/:id</code></td><td>Editor</td><td>Edita um campo, com registro no histórico.</td></tr>
+      <tr><td><code>POST</code> · <code>DELETE /api/rows/:tabela</code></td><td>Editor</td><td>Inclui ou exclui linhas.</td></tr>
+      <tr><td><code>POST</code> · <code>DELETE /api/services</code></td><td>Editor</td><td>Cadastra ou exclui serviço em todas as abas.</td></tr>
+      <tr><td><code>POST</code> · <code>DELETE /api/equipment</code></td><td>Editor</td><td>Cadastra ou exclui equipamento.</td></tr>
+      <tr><td><code>GET</code> · <code>POST</code> · <code>PATCH</code> · <code>DELETE /api/users</code></td><td>Admin</td><td>Gerência de usuários.</td></tr>
+      <tr><td><code>GET /api/coleta</code></td><td>Editor</td><td>Streams, placas de rede, disponibilidade de SRT, estado do teste.</td></tr>
+      <tr><td><code>POST</code> · <code>PUT</code> · <code>DELETE /api/coleta/fontes</code></td><td>Editor</td><td>Cadastro de streams.</td></tr>
+      <tr><td><code>POST /api/coleta/medir</code></td><td>Editor</td><td>Mede um stream e devolve análise e propostas.</td></tr>
+      <tr><td><code>GET /api/coleta/medicoes/:id</code></td><td>Editor</td><td>Reabre uma medição com as diferenças de agora.</td></tr>
+      <tr><td><code>POST /api/coleta/aplicar</code></td><td>Editor</td><td>Grava as propostas marcadas.</td></tr>
+      <tr><td><code>POST /api/coleta/teste</code></td><td>Editor</td><td>Liga ou desliga o teste local.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="seguranca">
+  <h2><span class="n">08</span>Login e segurança</h2>
+  <ul>
+    <li><b>Perfis</b>: Leitura (só consulta), Editor (altera dados e coleta), Admin (tudo e usuários). Sempre existe pelo menos um Admin ativo.</li>
+    <li><b>Senhas</b> guardadas com scrypt (N=16384) e sal aleatório; mínimo de 8 caracteres com letras e números, sem o nome do usuário.</li>
+    <li><b>Primeiro acesso</b>: admin / admin, com troca obrigatória. A senha padrão deixa de funcionar depois disso.</li>
+    <li><b>Sessão</b> por cookie HttpOnly e SameSite=Strict; expira em 12 h ou após 2 h sem uso; marcada Secure atrás de HTTPS.</li>
+    <li><b>Bloqueio</b> de 10 minutos após 5 senhas erradas no mesmo usuário ou 20 no mesmo IP.</li>
+    <li><b>Recuperação</b>: <code>deploy/reset-senha.sh</code> no servidor; no Render, a variável <code>ADMIN_RESET_PASSWORD</code>.</li>
+    <li><b>Serviço systemd</b> roda com o usuário <code>bts</code>, sem privilégios, com <code>NoNewPrivileges</code>, <code>ProtectSystem</code> e <code>ProtectHome</code>.</li>
+    <li><b>Cabeçalhos</b>: X-Content-Type-Options, X-Frame-Options DENY e Referrer-Policy. A senha do SRT nunca volta para o navegador.</li>
+  </ul>
+</section>
+
+<section id="coleta">
+  <h2><span class="n">09</span>Coleta RTP / UDP / SRT</h2>
+  <h3>Protocolos aceitos</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Protocolo</th><th>Envio</th><th>Como o sistema recebe</th></tr></thead>
+    <tbody>
+      <tr><td>RTP</td><td>multicast ou unicast</td><td>Socket UDP do Node.js; tira o cabeçalho RTP (com CSRC, extensão e padding) e conta pacotes perdidos pela sequência.</td></tr>
+      <tr><td>UDP (TS direto)</td><td>multicast ou unicast</td><td>Mesmo socket; o sistema detecta sozinho se há RTP ou não.</td></tr>
+      <tr><td>SRT</td><td>caller ou listener</td><td>srt-live-transmit (ou ffmpeg) repassa o TS para uma porta local; senha (passphrase), latência e stream ID.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>O que o analisador lê</h3>
+  <ul>
+    <li><b>Pacotes de 188 bytes</b> (DVB) e <b>204 bytes</b> (BTS ISDB-T, com os 16 bytes de informação ISDB-T). Se os pacotes chegam cortados, como no SRT, ele se realinha pelo byte de sincronismo 0x47.</li>
+    <li><b>Tabelas</b> PAT (serviços e PMTs), PMT (PCR e componentes com tipo e descritores) e SDT (nomes, inclusive texto ARIB do ISDB-T), todas conferidas por CRC32.</li>
+    <li><b>Taxa de cada PID</b>, taxa total, útil e de nulos; <b>erros de continuidade</b> (CC); PIDs com PCR e embaralhados.</li>
+    <li><b>Layer ISDB-T</b> de cada PID e capacidade de cada layer, pelo layer_indicator do BTS.</li>
+    <li><b>Papel de cada componente</b>: vídeo (MPEG-2, H.264, HEVC), áudio (MPEG, AAC, LATM, AC-3, E-AC-3), closed caption, AIT, DSM-CC (DEM, ECT, dados).</li>
+  </ul>
+  <h3>Do stream ao banco</h3>
+  <ol>
+    <li>O usuário cadastra o stream (protocolo, endereço, porta, placa) e escolhe as abas que a coleta pode preencher. Sem nome e tipo, o sistema usa <code>endereço:porta</code> e detecta DVB ou ISDB-T.</li>
+    <li><b>Coletar</b> escuta de 5 a 60 segundos. Com a placa automática, assina o grupo em todas as placas (inclusive loopback) e descarta pacotes repetidos.</li>
+    <li>Cada serviço do stream é ligado ao do cadastro pelo PID da PMT, depois pelo ID de serviço e por fim pelo nome.</li>
+    <li>O sistema monta a lista de diferenças campo a campo (PIDs, ID, codificação, bitrates, taxas, layers, PIDs ISDB-T). Itens que sumiram do stream e a banda total do mux ficam desmarcados.</li>
+    <li>Só o que for marcado é gravado, numa transação, com registro no Histórico e a data da medição. Medições de teste não podem ser gravadas.</li>
+  </ol>
+  <h3>Rede pronta para o multicast</h3>
+  <p>A instalação e cada atualização aplicam o <code>rede-automatica.sh</code>:</p>
+  <ul>
+    <li><b>IGMP versão 2</b>, que todo switch entende.</li>
+    <li><b>rp_filter frouxo</b>, para não descartar multicast vindo de outra sub-rede.</li>
+    <li><b>IP automático de reserva</b> (169.254.x.x) no cabo quando a rede não tem DHCP.</li>
+    <li><b>Firewall</b> liberado para UDP multicast.</li>
+  </ul>
+  <p>O stream padrão <code>226.0.0.1:5000</code> já vem cadastrado.</p>
+  <div class="note"><p>A coleta só funciona num servidor ligado à rede dos equipamentos. No Render, a aba avisa que o multicast da emissora não chega na nuvem.</p></div>
+</section>
+
+<section id="instalacao">
+  <h2><span class="n">10</span>Instalação e implantação</h2>
+  <div class="grid2">
+    <div class="card"><h4>Linux, um comando</h4><p><code>curl -fsSL https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh | sudo bash</code>. Instala ou atualiza. Ubuntu, Debian, Rocky e Raspberry Pi OS.</p></div>
+    <div class="card"><h4>Raspberry Pi 4/5</h4><p>Imagem do cartão em <a href="https://github.com/BrunoTv01/bts-compress/releases/tag/raspberry">Releases</a> (bts-compress-raspberry.img.xz, cerca de 820 MB). Primeiro boot cria o banco sozinho.</p></div>
+    <div class="card"><h4>Máquina virtual</h4><p>ISO de autoinstalação, criador de VM no VirtualBox e cópia .ova que pega IP sozinha (<code>deploy/vm</code>).</p></div>
+    <div class="card"><h4>Windows 10/11</h4><p>Dois cliques em <code>deploy/windows/Instalar-BTS-Compress.bat</code>: Node.js e PostgreSQL pelo winget, tarefa agendada, atalho.</p></div>
+    <div class="card"><h4>Docker</h4><p><code>docker compose up -d --build</code>: app e PostgreSQL em containers, dados num volume.</p></div>
+    <div class="card"><h4>Render (nuvem)</h4><p>Blueprint <code>render.yaml</code>: serviço web e banco gratuitos; atualiza sozinho a cada envio ao GitHub.</p></div>
+  </div>
+  <h3>O que o instalador Linux faz</h3>
+  <ol>
+    <li>Desliga a fonte de pacotes do CD de instalação e espera a atualização automática do Ubuntu terminar.</li>
+    <li>Instala o Node.js 22, o PostgreSQL e o srt-tools.</li>
+    <li>Copia o sistema para <code>/opt/bts-compress</code> e instala as dependências (npm).</li>
+    <li>Cria o usuário de sistema <code>bts</code>, o banco e a configuração <code>/etc/bts-compress.env</code>.</li>
+    <li>Instala e liga o serviço <code>bts-compress</code>.</li>
+    <li>Libera firewall e multicast e configura a rede para a coleta.</li>
+    <li>Confere se o sistema responde e mostra o endereço com o login.</li>
+  </ol>
+  <p>Imagem do Raspberry: o GitHub Actions parte do Raspberry Pi OS Lite 64 bits oficial e instala tudo emulando ARM. Ela já vem com usuário Linux <code>suporte</code> / <code>admin</code> (troca obrigatória), SSH ligado e nome <code>bts-compress.local</code>. No primeiro boot, o serviço <code>bts-primeiro-boot</code> roda a instalação final, mesmo sem internet.</p>
+</section>
+
+<section id="ferramentas">
+  <h2><span class="n">11</span>Ferramentas de terminal</h2>
+<pre><code># medir um stream
+node /opt/bts-compress/tools/analisar-rtp.js 226.0.0.1:5000 --segundos 10
+node /opt/bts-compress/tools/analisar-rtp.js srt://10.0.0.20:9000 --senha MinhaSenha123
+
+# gerar stream de teste (não sai da máquina com --ttl 0)
+node /opt/bts-compress/tools/stream-teste.js dvb  226.0.0.1:5000 --minutos 10
+node /opt/bts-compress/tools/stream-teste.js isdb 239.255.10.2:5502 --minutos 10
+
+# enviar um arquivo .ts gravado
+node /opt/bts-compress/tools/enviar-rtp.js arquivo.ts 239.1.1.1:5000 --mbps 32.297 --repetir
+
+# descobrir por que o multicast não chega
+sudo bash /opt/bts-compress/deploy/diagnostico-coleta.sh 226.0.0.1:5000
+
+# cabo só para multicast, Wi-Fi para acesso
+sudo bash /opt/bts-compress/deploy/rede-coleta.sh [--ip 10.10.1.50/24]</code></pre>
+</section>
+
+<section id="operacao">
+  <h2><span class="n">12</span>Operação e manutenção</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Para quê</th><th>Comando</th></tr></thead>
+    <tbody>
+      <tr><td>Atualizar (com backup antes)</td><td><code>curl -fsSL https://raw.githubusercontent.com/BrunoTv01/bts-compress/main/instalar.sh | sudo bash</code></td></tr>
+      <tr><td>Ver se está rodando</td><td><code>systemctl status bts-compress</code></td></tr>
+      <tr><td>Ver o registro</td><td><code>journalctl -u bts-compress -f</code></td></tr>
+      <tr><td>Reiniciar</td><td><code>sudo systemctl restart bts-compress</code></td></tr>
+      <tr><td>Backup agora</td><td><code>sudo /opt/bts-compress/deploy/backup.sh</code></td></tr>
+      <tr><td>Backup diário às 02:30</td><td><code>sudo /opt/bts-compress/deploy/backup.sh --agendar</code></td></tr>
+      <tr><td>Restaurar</td><td><code>sudo /opt/bts-compress/deploy/backup.sh --restaurar ARQUIVO.sql.gz</code></td></tr>
+      <tr><td>Esqueci a senha do admin</td><td><code>sudo /opt/bts-compress/deploy/reset-senha.sh</code></td></tr>
+      <tr><td>Trazer dados do Render</td><td><code>sudo /opt/bts-compress/deploy/importar-banco.sh "EXTERNAL_DATABASE_URL"</code></td></tr>
+      <tr><td>Configuração</td><td><code>/etc/bts-compress.env</code> (porta, banco, senha inicial)</td></tr>
+    </tbody>
+  </table></div>
+  <p>Os backups ficam em <code>/var/backups/bts-compress/</code>; os 30 mais recentes são mantidos.</p>
+</section>
+
+<section id="testes">
+  <h2><span class="n">13</span>Testes e limitações</h2>
+  <h3>Testado</h3>
+  <ul>
+    <li><span class="chip c-ok">ok</span> Instalação completa na VM Ubuntu 24.04.1 do usuário, inclusive os problemas de CD-ROM e atualização automática do Ubuntu.</li>
+    <li><span class="chip c-ok">ok</span> Login, perfis, bloqueio, edição, inclusão, exclusão e histórico, pelo navegador automatizado (Playwright).</li>
+    <li><span class="chip c-ok">ok</span> Coleta de streams simulados: DVB e ISDB-T por RTP multicast, unicast com filtro de IP, UDP puro e SRT (caller, listener e com senha), sem erros CC.</li>
+    <li><span class="chip c-ok">ok</span> Pacotes repetidos (duas placas na mesma rede) descartados sem alterar a medição.</li>
+    <li><span class="chip c-ok">ok</span> Comando ffmpeg do usuário (<code>226.0.0.1:5000</code>) coletado corretamente.</li>
+    <li><span class="chip c-ok">ok</span> Imagem do Raspberry montada sem erros no GitHub Actions.</li>
+  </ul>
+  <h3>Ainda não confirmado</h3>
+  <ul>
+    <li><span class="chip c-warn">pendente</span> Coleta do mux, do BTS e dos encoders reais na rede da emissora.</li>
+    <li><span class="chip c-warn">pendente</span> Primeiro boot da imagem num Raspberry físico e o IP automático de reserva no cabo.</li>
+    <li><span class="chip c-warn">pendente</span> Recepção SRT pelo srt-live-transmit (testado só pelo ffmpeg).</li>
+    <li><span class="chip c-warn">pendente</span> Instalador do Windows, scripts do VirtualBox e Docker em máquina real.</li>
+  </ul>
+  <h3>Limitações conhecidas</h3>
+  <ul>
+    <li>As colunas DEM CC, ECT e Data são preenchidas pelo tipo do componente na PMT; confira antes de gravar.</li>
+    <li>Nomes de serviço ISDB-T em texto ARIB podem vir com caracteres estranhos; a troca de nome vem desmarcada.</li>
+    <li>No Render (plano gratuito) o sistema "dorme" após 15 minutos sem uso e demora para acordar; o SRT não funciona lá.</li>
+    <li>A taxa medida em poucos segundos pode variar 1 a 2% em relação a um analisador dedicado.</li>
+  </ul>
+</section>
+
+<section id="historico">
+  <h2><span class="n">14</span>Histórico do projeto</h2>
+  <ul class="timeline">
+    <li><time>22/10/2026</time>Sistema com banco PostgreSQL a partir da planilha, publicado no Render. Edição com senha, tabelas mais legíveis, cadastro de equipamentos, encoder por serviço, inclusão e exclusão de serviços, linhas e PIDs, renomear serviços.</li>
+    <li><time>23/10/2026</time>Logo da TV Cultura. Instalação em servidor Linux. Login com usuários e perfis, fundo animado de uplink. Versões 1.1.0 e 1.2.0 (banco que se configura sozinho).</li>
+    <li><time>26/10/2026</time>Login padrão admin / admin com troca obrigatória (1.3.0). Importação dos dados do Render (1.4.0). Instalador de um comando. ISO para VM (1.5.0), criador de VM, instalação com um clique e para Windows. Correções do instalador no Ubuntu Desktop.</li>
+    <li><time>27/10/2026</time>Cópia da VM que pega IP sozinha. Coleta RTP com revisão e teste local (1.6.0).</li>
+    <li><time>28/10/2026</time>SRT, multicast e unicast explícitos (1.7.0). Diagnóstico de multicast. Imagem do Raspberry Pi pelo GitHub Actions.</li>
+    <li><time>30/10/2026</time>IGMP versão 2, descarte de pacotes repetidos, rede do cabo pronta para coletar, stream padrão 226.0.0.1:5000, banda disponível editável na aba Serviços &amp; PIDs.</li>
+  </ul>
+</section>
+
+<footer>
+  Documentação do BTS Compress 1.7.0 · código-fonte em <a href="https://github.com/BrunoTv01/bts-compress">github.com/BrunoTv01/bts-compress</a> · gerada a partir do repositório em 05/11/2026.
+</footer>
+</main>
+</div>
+</body>
+</html>

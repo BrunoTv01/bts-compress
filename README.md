@@ -2,6 +2,8 @@
 
 Sistema web do estudo **BTS Compress (03/08/2026)**: serviços, PIDs e bitrates DVB e ISDB-T, guardados num banco PostgreSQL e editáveis pelo navegador.
 
+Documentação completa (arquitetura, softwares, código-fonte, banco, API, coleta e instalação): abra [docs/DOCUMENTACAO.html](docs/DOCUMENTACAO.html) no navegador.
+
 ## O que tem
 
 - **Serviços & PIDs**: mapa de PIDs decimais de cada serviço e bitrate titular, com a ocupação do mux DVB (32,297 Mbps).
